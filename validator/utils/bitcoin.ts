@@ -1,0 +1,49 @@
+import axios from 'axios';
+
+async function sendBtcRpcRequest(data: object): Promise<any> {
+  const response = await axios.post(process.env.BTC_RPC_URL, data, {
+    headers: {
+      'Content-Type': 'text/plain'
+    }
+  });
+  return response.data;
+}
+
+export async function getblockhash(blockNumber: number): Promise<any> {
+  const data = {
+    jsonrpc: '1.0',
+    id: Date.now(),
+    method: 'getblockhash',
+    params: [blockNumber]
+  };
+  return sendBtcRpcRequest(data);
+}
+
+export async function getblockcount(): Promise<any> {
+  const data = {
+    jsonrpc: '1.0',
+    id: Date.now(),
+    method: 'getblockcount',
+    params: []
+  };
+  return sendBtcRpcRequest(data);
+}
+
+export async function getLatestBlockInfo() {
+  const blockcountRes = await getblockcount();
+  const blockhashRes = await getblockhash(blockcountRes.result);
+  return {
+    height: blockcountRes.result,
+    hash: blockhashRes.result
+  }
+}
+
+export async function getblockheader(blockhash: string): Promise<any> {
+  const data = {
+    jsonrpc: '1.0',
+    id: Date.now(),
+    method: 'getblockheader',
+    params: [blockhash]
+  };
+  return sendBtcRpcRequest(data);
+}
