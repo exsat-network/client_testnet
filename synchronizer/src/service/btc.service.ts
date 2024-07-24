@@ -8,13 +8,22 @@ import { sleep } from '~/utils/http';
 @Injectable()
 export class BtcService {
   private rpcUrls: Array<string>;
-
+  private rpcAuth: string;
+  private rpcUser: string;
+  private rpcPassword: string;
   constructor(
     private configService: ConfigService,
     private logger: Logger,
   ) {}
   init() {
     this.rpcUrls = [this.configService.get('BTC_RPC_URL')];
+    if (
+      this.configService.get('BTC_RPC_USERNAME') &&
+      this.configService.get('BTC_RPC_PASSWORD')
+    )
+      Buffer.from(
+        `${this.configService.get('BTC_RPC_USERNAME')}:${this.configService.get('BTC_RPC_PASSWORD')}`,
+      ).toString('base64');
   }
   /**
    * Request the RPC node to obtain the binary data

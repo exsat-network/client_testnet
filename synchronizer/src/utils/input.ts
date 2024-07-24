@@ -10,7 +10,10 @@ export async function inputWithCancel(
       if (input.toLowerCase() === 'q') {
         return true;
       }
-      return validatefn(input);
+      if (typeof validatefn === 'function') {
+        return validatefn(input);
+      }
+      return true;
     },
   });
   if (value.toLowerCase() === 'q') {

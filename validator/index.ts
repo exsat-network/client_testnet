@@ -3,7 +3,7 @@ import cron from 'node-cron';
 import {getblockcount, getblockhash} from "./utils/bitcoin";
 import {Exsat} from "./utils/exsat";
 import {logger} from './utils/logger';
-import {isEndorserQualified, retry, sleep} from './utils/util';
+import {inputWithCancel, isEndorserQualified, retry, sleep, updateEnvFile} from './utils/util';
 import {readdirSync, readFileSync} from "fs";
 import path from "node:path";
 import {confirm, input, password, select, Separator} from "@inquirer/prompts";
@@ -27,15 +27,21 @@ let [endorseRunning, endorseCheckRunning] = [false, false];
 
 
 async function checkKeystoreAndParse(){
-  const rootDir = path.resolve(__dirname);
-  const files = readdirSync(rootDir).filter((file) =>
-      file.endsWith('_keystore.json'),
-  );
-  if (files.length > 0) {
-    encFile = path.resolve(rootDir, files[0]);
-  } else {
-    encFile = config.get('keystoreFile')
+  if(process.env.KEYSTORE_FILE){
+    encFile = process.env.KEYSTORE_FILE;
+  }else{
+    const rootDir = path.resolve(__dirname);
+    const files = readdirSync(rootDir).filter((file) =>
+        file.endsWith('_keystore.json'),
+    );
+    if (files.length > 0) {
+      encFile = path.resolve(rootDir, files[0]);
+    }else{
+      console.log('No keystore file found, please create one first');
+      process.exit();
+    }
   }
+
   try {
     return await retry(async () => {
       const passwordInput = await password({message: 'Enter your password(5 incorrect passwords will exit the program)'});
@@ -173,15 +179,16 @@ async function validatorWork() {
 
 }
 function existKeystore(): boolean {
+  const file = process.env.KEYSTORE_FILE;
+  if (file && fs.existsSync(file)) {
+    return true;
+  }
   const dir = path.resolve(__dirname);
   const files = fs.readdirSync(dir);
   for (let i = 0; i < files.length; i++) {
     if (files[i].endsWith('_keystore.json')) return true;
   }
-  const file = process.env.KEYSTORE_FILE;
-  if (file && fs.existsSync(file)) {
-    return true;
-  }
+
   return false;
 }
 
@@ -224,36 +231,53 @@ async function resetBtcRpcUrl() {
 }
 
 async function setBtcRpcUrl(envConfig?, envFilePath?) {
-  if (!envFilePath) {
-    envFilePath = '.env';
-    if (!fs.existsSync(envFilePath)) {
-      fs.writeFileSync(envFilePath, '');
+  const btcRpcUrl = await inputWithCancel(
+      'Please enter new BTC_RPC_URL(Input "q" to return): ',
+      (input) => {
+        if (!isValidUrl(input)) {
+          return 'Please enter a valid URL';
+        }
+        return true;
+      },
+  );
+  if (!btcRpcUrl) {
+    return false;
+  }
+  const values = {};
+
+  // Update .env file
+  values['BTC_RPC_URL'] = btcRpcUrl;
+  values['BTC_RPC_USERNAME'] = '';
+  values['BTC_RPC_PASSWORD'] = '';
+  let rpcUsername: boolean | string = '';
+  let rpcPassword: boolean | string = '';
+  if (
+      await confirm({
+        message: 'Do You need to configure the username and password?',
+      })
+  ) {
+    rpcUsername = await inputWithCancel(
+        'Please enter RPC username(Input "q" to return): ',
+    );
+    if (!rpcUsername) {
+      return false;
+    }
+    rpcPassword = await inputWithCancel(
+        'Please enter RPC password(Input "q" to return): ',
+    );
+    if (!rpcPassword) {
+      return false;
     }
   }
-  if (!envConfig) {
-    envConfig = dotenv.parse(fs.readFileSync(envFilePath));
-  }
+  values['BTC_RPC_USERNAME'] = rpcUsername;
+  values['BTC_RPC_PASSWORD'] = rpcPassword;
 
-  const btcRpcUrl = await input({
-    message: 'Please enter new BTC_RPC_URL(Input "q" to return): ',
-    validate: (input) => {
-      if (input.toLowerCase() === 'q') {
-        return true;
-      }
-      if (!isValidUrl(input)) {
-        return 'Please enter a valid URL';``
-      }
-      return true;
-    },
-  });
-  if(btcRpcUrl.toLowerCase() === 'q') return false;
-  // Update .env file
-  envConfig.BTC_RPC_URL = btcRpcUrl
-  const updatedEnvContent = Object.keys(envConfig)
-      .map((key) => `${key}=${envConfig[key]}`)
-      .join('\n');
-  fs.writeFileSync(envFilePath, updatedEnvContent);
+  updateEnvFile(values);
+
   process.env.BTC_RPC_URL = btcRpcUrl
+  process.env.BTC_RPC_USERNAME = rpcUsername
+  process.env.BTC_RPC_PASSWORD = rpcPassword
+
   logger.info('.env file has been updated successfully.');
   return true;
 }
@@ -283,7 +307,7 @@ async function removeKeystore() {
     await retry(async () => {
       const passwordInput = await password({
         message:
-            'Enter your password to Delete Account\n(5 incorrect passwords will exit the program,Enter "q" to return):',
+            'Enter your password to Remove Account\n(5 incorrect passwords will exit the program,Enter "q" to return):',
       });
       if (passwordInput === 'q') {
         return false;
@@ -291,7 +315,7 @@ async function removeKeystore() {
       const keystore = readFileSync(encFile, 'utf-8');
       await decryptKeystore(keystore, passwordInput);
       fs.unlinkSync(encFile);
-      logger.info('Delete Account successfully');
+      logger.info('Remove Account successfully');
       process.exit();
     }, 5);
   } catch (e) {
@@ -406,9 +430,9 @@ async function manageAccount() {
       description: 'Export Private Key',
     },
     {
-      name: 'Delete Account',
-      value: 'delete_account',
-      description: 'Delete Account',
+      name: 'Remove Account',
+      value: 'remove_account',
+      description: 'Remove Account',
     },
     new Separator(),
     {
@@ -425,7 +449,7 @@ async function manageAccount() {
           `Private Key:${accountInfo.privateKey}`,
       );
     },
-    delete_account: async () => await removeKeystore(),
+    remove_account: async () => await removeKeystore(),
   };
 
   let action;
