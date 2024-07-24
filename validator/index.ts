@@ -75,19 +75,19 @@ async function setValidatorConfig() {
 
   const accountName = accountInfo.accountName;
   const commissionRate = await input({
-    message: 'Enter commission rate (0-100000, Input "q" to return):',
+    message: 'Enter commission rate (0-10000, Input "q" to return):',
     validate: (input) => {
       if(input.toLowerCase() === 'q'){return true}
       const number = Number(input);
       if (!Number.isInteger(number) || number < 0 || number > 10000) {
-        return 'Please enter a valid integer between 0 and 100000.';
+        return 'Please enter a valid integer between 0 and 10000.';
       }
       return true;
     }
   });
   if(commissionRate.toLowerCase() === 'q'){return false}
   const financialAccount = await input({
-    message: 'Enter financial account(Input "q" to return):',
+    message: 'Enter Reward Account(Input "q" to return):',
     validate: (input: string) => {
       if(input.toLowerCase() === 'q'){return true}
       if (!/^0x[a-fA-F0-9]{40}$/.test(input)) {

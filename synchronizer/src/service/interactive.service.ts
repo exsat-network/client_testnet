@@ -104,7 +104,7 @@ export class InteractiveService {
       return false;
     }
     await this.synchronizerService.resetRewardAddress(financialAccount);
-    this.logger.log(`Set financial account:${financialAccount} successfully`);
+    this.logger.log(`Set Reward Account:${financialAccount} successfully`);
   }
 
   /**
