@@ -9,8 +9,6 @@ import { sleep } from '~/utils/http';
 export class BtcService {
   private rpcUrls: Array<string>;
   private rpcAuth: string;
-  private rpcUser: string;
-  private rpcPassword: string;
   constructor(
     private configService: ConfigService,
     private logger: Logger,
@@ -21,7 +19,7 @@ export class BtcService {
       this.configService.get('BTC_RPC_USERNAME') &&
       this.configService.get('BTC_RPC_PASSWORD')
     )
-      Buffer.from(
+      this.rpcAuth = Buffer.from(
         `${this.configService.get('BTC_RPC_USERNAME')}:${this.configService.get('BTC_RPC_PASSWORD')}`,
       ).toString('base64');
   }
@@ -110,6 +108,7 @@ export class BtcService {
             {
               headers: {
                 'Content-Type': 'application/json',
+                Authorization: this.rpcAuth ? `Basic ${this.rpcAuth}` : '',
               },
               timeout: 8000,
             },
