@@ -15,6 +15,7 @@ import { checkUsernameWithBackend } from 'account-initializer/dist/accountInitia
 import * as path from 'node:path';
 import process from 'node:process';
 import { inputWithCancel } from '~/utils/input';
+import { updateEnvFile } from '~/utils/env';
 
 @Injectable()
 export class InteractiveService {
@@ -26,15 +27,19 @@ export class InteractiveService {
     private logger: Logger,
     private synchronizerService: SynchronizerSerivce,
   ) {
-    const rootDir = configService.get<string>('app.root_dir');
-    const files = readdirSync(rootDir).filter((file) =>
-      file.endsWith('_keystore.json'),
-    );
-
-    if (files.length > 0) {
-      this.encFile = path.resolve(rootDir, files[0]);
-    } else {
+    if (configService.get<string>('KEYSTORE_FILE')) {
       this.encFile = configService.get<string>('KEYSTORE_FILE');
+    } else {
+      const rootDir = configService.get<string>('app.root_dir');
+      const files = readdirSync(rootDir).filter((file) =>
+        file.endsWith('_keystore.json'),
+      );
+
+      if (files.length > 0) {
+        this.encFile = path.resolve(rootDir, files[0]);
+      } else {
+        throw new Error('Keystore file not found');
+      }
     }
   }
 
@@ -104,7 +109,7 @@ export class InteractiveService {
       return false;
     }
     await this.synchronizerService.resetRewardAddress(financialAccount);
-    this.logger.log(`Set financial account:${financialAccount} successfully`);
+    this.logger.log(`Set Reward Account:${financialAccount} successfully`);
   }
 
   /**
@@ -137,20 +142,12 @@ export class InteractiveService {
    *  set local btc rpc url
    */
   async checkAndSetBtcRpcUrl() {
-    dotenv.config();
-    // Check if .env file exists
-    const envFilePath = '.env';
-    if (!fs.existsSync(envFilePath)) {
-      fs.writeFileSync(envFilePath, '');
-    }
+    const rpcUrl = this.configService.get('BTC_RPC_URL');
 
-    // Reload .env file contents
-    const envConfig = dotenv.parse(fs.readFileSync(envFilePath));
-
-    if (!envConfig.BTC_RPC_URL || !this.isValidUrl(envConfig.BTC_RPC_URL)) {
+    if (!rpcUrl || !this.isValidUrl(rpcUrl)) {
       this.logger.log('BTC_RPC_URL is not set or not in the correct format.');
       // Prompt user for new BTC_RPC_URL
-      const res = await this.setBtcRpcUrl(envConfig, envFilePath);
+      const res = await this.setBtcRpcUrl();
       if (!res) {
         this.logger.log('Set BTC_RPC_URL failed.');
         process.exit();
@@ -173,17 +170,7 @@ export class InteractiveService {
     return await this.setBtcRpcUrl();
   }
 
-  async setBtcRpcUrl(envConfig?, envFilePath?) {
-    if (!envFilePath) {
-      envFilePath = '.env';
-      if (!fs.existsSync(envFilePath)) {
-        fs.writeFileSync(envFilePath, '');
-      }
-    }
-    if (!envConfig) {
-      envConfig = dotenv.parse(fs.readFileSync(envFilePath));
-    }
-
+  async setBtcRpcUrl() {
     const btcRpcUrl = await inputWithCancel(
       'Please enter new BTC_RPC_URL(Input "q" to return): ',
       (input) => {
@@ -196,13 +183,40 @@ export class InteractiveService {
     if (!btcRpcUrl) {
       return false;
     }
+    const values = {};
+
     // Update .env file
-    envConfig.BTC_RPC_URL = btcRpcUrl;
-    const updatedEnvContent = Object.keys(envConfig)
-      .map((key) => `${key}=${envConfig[key]}`)
-      .join('\n');
-    fs.writeFileSync(envFilePath, updatedEnvContent);
-    this.configService.set('BTC_RPC_URL', envConfig.BTC_RPC_URL);
+    values['BTC_RPC_URL'] = btcRpcUrl;
+    values['BTC_RPC_USERNAME'] = '';
+    values['BTC_RPC_PASSWORD'] = '';
+    let rpcUsername: boolean | string = '';
+    let rpcPassword: boolean | string = '';
+    if (
+      await confirm({
+        message: 'Do You need to configure the username and password?',
+      })
+    ) {
+      rpcUsername = await inputWithCancel(
+        'Please enter RPC username(Input "q" to return): ',
+      );
+      if (!rpcUsername) {
+        return false;
+      }
+      rpcPassword = await inputWithCancel(
+        'Please enter RPC password(Input "q" to return): ',
+      );
+      if (!rpcPassword) {
+        return false;
+      }
+    }
+    values['BTC_RPC_USERNAME'] = rpcUsername;
+    values['BTC_RPC_PASSWORD'] = rpcPassword;
+
+    updateEnvFile(values);
+    this.configService.set('BTC_RPC_URL', btcRpcUrl);
+    this.configService.set('BTC_RPC_USERNAME', rpcUsername);
+    this.configService.set('BTC_RPC_PASSWORD', rpcPassword);
+
     this.logger.log('.env file has been updated successfully.');
     return true;
   }
@@ -212,7 +226,7 @@ export class InteractiveService {
       await retry(async () => {
         const passwordInput = await password({
           message:
-            'Enter your password to Delete Account\n(5 incorrect passwords will exit the program,Enter "q" to return):',
+            'Enter your password to Remove Account\n(5 incorrect passwords will exit the program,Enter "q" to return):',
         });
         if (passwordInput === 'q') {
           return false;
@@ -220,7 +234,7 @@ export class InteractiveService {
         const keystore = readFileSync(this.encFile, 'utf-8');
         await decryptKeystore(keystore, passwordInput);
         fs.unlinkSync(this.encFile);
-        this.logger.log('Delete Account successfully');
+        this.logger.log('Remove Account successfully');
         process.exit();
       }, 5);
     } catch (e) {
@@ -271,9 +285,9 @@ export class InteractiveService {
         description: 'Export Private Key',
       },
       {
-        name: 'Delete Account',
-        value: 'delete_account',
-        description: 'Delete Account',
+        name: 'Remove Account',
+        value: 'remove_account',
+        description: 'Remove Account',
       },
       new Separator(),
       {
@@ -291,7 +305,7 @@ export class InteractiveService {
           `Private Key:${this.configService.get('exsat_privatekey')}`,
         );
       },
-      delete_account: async () => await this.removeKeystore(),
+      remove_account: async () => await this.removeKeystore(),
     };
 
     let action;

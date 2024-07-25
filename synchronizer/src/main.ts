@@ -24,7 +24,7 @@ async function main() {
         description: 'Launch Client',
       },
       {
-        name: `${rpcUrl?'Reset':'Set'} BTC RPC Node`,
+        name: `${rpcUrl ? 'Reset' : 'Set'} BTC RPC Node`,
         value: 'set_btc_node',
         description: 'Set/Reset BTC RPC Node',
       },
@@ -74,15 +74,17 @@ async function main() {
 
 // Determine whether a file with the suffix _keystore.json exists in root_dir. If it exists, return true, otherwise return false.
 function existKeystore(): boolean {
+  const file = process.env.KEYSTORE_FILE;
+  if (file && fs.existsSync(file)) {
+    return true;
+  }
+
   const dir = path.resolve(__dirname, '..');
   const files = fs.readdirSync(dir);
   for (let i = 0; i < files.length; i++) {
     if (files[i].endsWith('_keystore.json')) return true;
   }
-  const file = process.env.KEYSTORE_FILE;
-  if (file && fs.existsSync(file)) {
-    return true;
-  }
+
   return false;
 }
 main().then(() => function () {});

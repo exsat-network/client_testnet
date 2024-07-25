@@ -1,5 +1,8 @@
 import crypto from 'crypto'
 import { Name, Checksum160 } from '@wharfkit/antelope'
+import fs from "node:fs";
+import * as dotenv from "dotenv";
+import {input} from "@inquirer/prompts";
 
 type Checksum256 = Buffer
 
@@ -84,4 +87,65 @@ export const retry = async (
 
 export async function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function inputWithCancel(
+    message: string,
+    validatefn?: (value: string) => boolean | string | Promise<string | boolean>,
+) {
+    const value = await input({
+        message: message,
+        validate: (input) => {
+            if (input.toLowerCase() === 'q') {
+                return true;
+            }
+            if (typeof validatefn === 'function') {
+                return validatefn(input);
+            }
+            return true;
+        },
+    });
+    if (value.toLowerCase() === 'q') {
+        return false;
+    }
+    return value;
+}
+
+
+export function updateEnvFile(values) {
+    const envFilePath = '.env';
+    if (!fs.existsSync(envFilePath)) {
+        fs.writeFileSync(envFilePath, '');
+    }
+    const envConfig = dotenv.parse(fs.readFileSync(envFilePath));
+    Object.keys(values).forEach((key) => {
+        envConfig[key] = values[key];
+    });
+    // Read original .env file contents
+    const originalEnvContent = fs.readFileSync(envFilePath, 'utf-8');
+
+    // Parse original .env file contents
+    const parsedEnv = dotenv.parse(originalEnvContent);
+
+    // Build updated .env file contents, preserving comments and structure
+    const updatedLines = originalEnvContent.split('\n').map((line) => {
+        const [key] = line.split('=');
+        if (key && envConfig[key.trim()]) {
+            return `${key}=${envConfig[key.trim()]}`;
+        }
+        return line;
+    });
+
+    // Check if any new key-value pairs need to be added to the end of the file
+    Object.keys(envConfig).forEach((key) => {
+        if (!parsedEnv.hasOwnProperty(key)) {
+            updatedLines.push(`${key}=${envConfig[key]}`);
+        }
+    });
+    // Concatenate updated content into string
+    const updatedEnvContent = updatedLines.join('\n');
+    // Write back the updated .env file contents
+    fs.writeFileSync(envFilePath, updatedEnvContent);
+
+    return true;
 }
