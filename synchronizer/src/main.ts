@@ -8,8 +8,19 @@ import {
   importFromPrivateKey,
   initializeAccount,
 } from 'account-initializer';
-
+import { program } from 'commander';
+const commandOptions = program
+  .option('--pwd <password>', 'Set password for keystore')
+  .option('--run', 'Run synchronizer')
+  .parse(process.argv)
+  .opts();
+export { commandOptions };
 async function main() {
+  let init = existKeystore();
+  if (init && commandOptions.run) {
+    await bootstrap('launch_client');
+    return;
+  }
   const rpcUrl = process.env.BTC_RPC_URL;
   const menus = {
     mainWithKeystore: [
@@ -63,7 +74,7 @@ async function main() {
 
   let action: string | undefined;
   do {
-    const init = existKeystore(); // Suppose this function checks if Keystore exists
+    init = existKeystore(); // Suppose this function checks if Keystore exists
     const mainMenu = init ? menus.mainWithKeystore : menus.mainWithoutKeystore;
     action = await select({ message: 'Select action', choices: mainMenu });
     if (action && actions[action]) {

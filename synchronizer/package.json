@@ -11,7 +11,7 @@
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "start": "nest start",
+    "start": "ts-node  -r tsconfig-paths/register  src/main.ts ",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
@@ -47,6 +47,7 @@
     "bitcoinjs-lib": "^6.1.6",
     "body-parser": "^1.20.2",
     "class-transformer": "^0.5.1",
+    "commander": "^12.1.0",
     "cron": "^3.1.7",
     "cross-env": "^7.0.3",
     "crypto-js": "^4.0.0",
