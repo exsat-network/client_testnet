@@ -21,6 +21,7 @@
     "account-initializer": "github:exsat-network/account-initializer",
     "axios": "^1.7.2",
     "bitcoinjs-lib": "^6.1.6",
+    "commander": "^12.1.0",
     "config": "^3.3.11",
     "crypto-js": "^4.2.0",
     "dotenv": "^16.4.5",

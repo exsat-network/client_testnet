@@ -7,7 +7,6 @@ import { password, confirm } from '@inquirer/prompts';
 import { SynchronizerSerivce } from '~/service/synchronizer.serivce';
 import { ExsatService } from '~/service/exsat.service';
 import { retry } from '~/utils/http';
-import * as dotenv from 'dotenv';
 import * as fs from 'node:fs';
 import { BtcService } from '~/service/btc.service';
 import select, { Separator } from '@inquirer/select';
@@ -16,6 +15,7 @@ import * as path from 'node:path';
 import process from 'node:process';
 import { inputWithCancel } from '~/utils/input';
 import { updateEnvFile } from '~/utils/env';
+import { commandOptions } from '~/main';
 
 @Injectable()
 export class InteractiveService {
@@ -62,24 +62,17 @@ export class InteractiveService {
   async decryptKeystore() {
     if (!this.configService.get('exsat_privatekey')) {
       try {
-        await retry(async () => {
-          const passwordInput = await password({
-            message:
-              'Enter your password (5 incorrect passwords will exit the program)',
-          });
-          const keystore = readFileSync(this.encFile, 'utf-8');
-          const keystoreInfo = JSON.parse(keystore);
-          const data = await decryptKeystore(keystore, passwordInput);
-
-          this.configService.set('exsat_privatekey', data);
-          this.configService.set('exsat_publickey', keystoreInfo.address);
-          this.configService.set(
-            'exsat_account',
-            keystoreInfo.username.endsWith('.sat')
-              ? keystoreInfo.username
-              : keystoreInfo.username + '.sat',
-          );
-        }, 5);
+        if (commandOptions.pwd) {
+          await this.decryptKeystoreWithPassword(commandOptions.pwd);
+        } else {
+          await retry(async () => {
+            const passwordInput = await password({
+              message:
+                'Enter your password (5 incorrect passwords will exit the program)',
+            });
+            await this.decryptKeystoreWithPassword(passwordInput);
+          }, 5);
+        }
         await this.exsatService.init();
       } catch (e) {
         this.logger.error('Invaild Password');
@@ -87,7 +80,20 @@ export class InteractiveService {
       }
     }
   }
+  private async decryptKeystoreWithPassword(password: string) {
+    const keystore = readFileSync(this.encFile, 'utf-8');
+    const keystoreInfo = JSON.parse(keystore);
+    const data = await decryptKeystore(keystore, password);
 
+    this.configService.set('exsat_privatekey', data);
+    this.configService.set('exsat_publickey', keystoreInfo.address);
+    this.configService.set(
+      'exsat_account',
+      keystoreInfo.username.endsWith('.sat')
+        ? keystoreInfo.username
+        : keystoreInfo.username + '.sat',
+    );
+  }
   /**
    *  set finance account
    *

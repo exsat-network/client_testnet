@@ -18,7 +18,12 @@ import fs from "node:fs";
 import * as dotenv from 'dotenv';
 import {checkUsernameWithBackend} from "account-initializer/dist/accountInitializer";
 import process from 'process';
-
+import { program } from 'commander';
+const commandOptions = program
+    .option('--pwd <password>', 'Set password for keystore')
+    .option('--run', 'Run synchronizer')
+    .parse(process.argv)
+    .opts();
 
 let exsat:Exsat;
 let accountInfo: any;
@@ -41,26 +46,32 @@ async function checkKeystoreAndParse(){
       process.exit();
     }
   }
+  if(commandOptions.pwd){
+    return decryptKeystoreWithPassword(commandOptions.pwd)
+  }else{
+    try {
+      return await retry(async () => {
+        const passwordInput = await password({message: 'Enter your password(5 incorrect passwords will exit the program)'});
 
-  try {
-    return await retry(async () => {
-      const passwordInput = await password({message: 'Enter your password(5 incorrect passwords will exit the program)'});
-      const keystore = readFileSync(encFile, 'utf-8');
-
-      const keystoreInfo = JSON.parse(keystore);
-      const accountName = keystoreInfo.username.endsWith('.sat') ? keystoreInfo.username : `${keystoreInfo.username}.sat`;
-      const data = await decryptKeystore(keystore, passwordInput);
-      accountInfo = {...keystoreInfo, privateKey: data, accountName}
-      await checkExsatInstance()
-      return {account: accountName, privateKey: data};
-    },5);
-  }catch (error) {
-    console.log('Error:Invaild Password');
-    process.exit();
+        return decryptKeystoreWithPassword(passwordInput)
+      },5);
+    }catch (error) {
+      console.log('Error:Invaild Password');
+      process.exit();
+    }
   }
 
 }
+async function decryptKeystoreWithPassword(password: string) {
+  const keystore = readFileSync(encFile, 'utf-8');
 
+  const keystoreInfo = JSON.parse(keystore);
+  const accountName = keystoreInfo.username.endsWith('.sat') ? keystoreInfo.username : `${keystoreInfo.username}.sat`;
+  const data = await decryptKeystore(keystore, password);
+  accountInfo = {...keystoreInfo, privateKey: data, accountName}
+  await checkExsatInstance()
+  return {account: accountName, privateKey: data};
+}
 async function submitEndorsement(validator: string, height: number, hash: string) {
   try {
     const result = await exsat.transact('blkendt.xsat', 'endorse', { validator, height, hash });
@@ -324,6 +335,11 @@ async function removeKeystore() {
   }
 }
 async function main(){
+  let init = existKeystore();
+  if(init && commandOptions.run){
+    await validatorWork();
+    return;
+  }
 
   const menus = {
     mainWithKeystore: [
@@ -378,7 +394,7 @@ async function main(){
 
   let action: string | undefined;
   do {
-    const init = existKeystore(); // Suppose this function checks if Keystore exists
+    init = existKeystore(); // Suppose this function checks if Keystore exists
     const mainMenu = init ? menus.mainWithKeystore : menus.mainWithoutKeystore;
 
     action = await select({ message: 'Select action', choices: mainMenu });
