@@ -4,11 +4,15 @@ import { bootstrap } from '~/bootstrap';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import { importFromMnemonic,  importFromPrivateKey,  initializeAccount,
+import {
+  importFromMnemonic,
+  importFromPrivateKey,
+  initializeAccount,
 } from 'account-initializer';
 import { program } from 'commander';
 const commandOptions = program
   .option('--pwd <password>', 'Set password for keystore')
+  .option('--pwdfile <password>', 'Set password for keystore')
   .option('--run', 'Run synchronizer')
   .parse(process.argv)
   .opts();

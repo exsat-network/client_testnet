@@ -2,8 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from '~/common/logger/logger';
 import { readdirSync, readFileSync } from 'fs';
-import {chargeBtcForResource, chargeForRegistry, decryptKeystore} from 'account-initializer';
-import {password, confirm, input} from '@inquirer/prompts';
+import {
+  chargeBtcForResource,
+  chargeForRegistry,
+  decryptKeystore,
+} from 'account-initializer';
+import { password, confirm, input } from '@inquirer/prompts';
 import { SynchronizerSerivce } from '~/service/synchronizer.serivce';
 import { ExsatService } from '~/service/exsat.service';
 import { retry } from '~/utils/http';
@@ -64,7 +68,10 @@ export class InteractiveService {
       try {
         if (commandOptions.pwd) {
           await this.decryptKeystoreWithPassword(commandOptions.pwd);
-        } else {
+        } else if(commandOptions.pwdfile) {
+          const password = readFileSync(commandOptions.pwdfile, 'utf-8');
+          await this.decryptKeystoreWithPassword(password);
+        }else{
           await retry(async () => {
             const passwordInput = await password({
               message:
@@ -357,15 +364,19 @@ export class InteractiveService {
 
     const actions: { [key: string]: () => Promise<any> } = {
       recharge_btc: async () => await chargeBtcForResource(this.encFile),
-      recharge_btc_registry: async () => await chargeForRegistry(accountName,checkAccountInfo.btcAddress,checkAccountInfo.amount),
+      recharge_btc_registry: async () =>
+        await chargeForRegistry(
+          accountName,
+          checkAccountInfo.btcAddress,
+          checkAccountInfo.amount,
+        ),
       set_reward_address: async () => await this.setRewardAddress(),
       purchase_memory_slot: async () => await this.purchaseSlots(),
       export_private_key: async () => {
-
         console.log(
           `Private Key:${this.configService.get('exsat_privatekey')}`,
         );
-        await input({message:"Press [enter] to continue"});
+        await input({ message: 'Press [enter] to continue' });
       },
       remove_account: async () => await this.removeKeystore(),
     };

@@ -20,6 +20,7 @@ import process from 'process';
 import { program } from 'commander';
 const commandOptions = program
     .option('--pwd <password>', 'Set password for keystore')
+    .option('--pwdfile <passwordFile>', 'Set password for keystore')
     .option('--run', 'Run synchronizer')
     .parse(process.argv)
     .opts();
@@ -47,6 +48,9 @@ async function checkKeystoreAndParse(){
   }
   if(commandOptions.pwd){
     return decryptKeystoreWithPassword(commandOptions.pwd)
+  } else if(commandOptions.pwdfile) {
+    const password = readFileSync(commandOptions.pwdfile, 'utf-8');
+    await decryptKeystoreWithPassword(password);
   }else{
     try {
       return await retry(async () => {
