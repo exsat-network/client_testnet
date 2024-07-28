@@ -223,7 +223,7 @@ cd validator && yarn start
 |-----------------|---------------------------------------------------------------------   |--------------------------------------------------------------|
 | `--pwd`         | Provides the password directly.                                        | `yarn start --pwd mysecretpassword`                          |
 | `--pwdfile`     | Provides the file path containing the password.                        | `yarn start --pwdfile /path/to/password.txt`                 |
-| `--run`         | Directly starts the client without needing a password or password file. | `yarn start --run`                                           |
+| `--run`         | Directly start the client, skipping the menu operations.               | `yarn start --run`                                           |
 
 
 ## Act as Synchronizer
