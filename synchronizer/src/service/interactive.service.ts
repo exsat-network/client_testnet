@@ -83,10 +83,8 @@ export class InteractiveService {
         }
         await this.exsatService.init();
       } catch (e) {
-        console.log(path.resolve(commandOptions.pwdfile));
-        const password = readFileSync(commandOptions.pwdfile, 'utf-8');
-        console.log(password);
         this.logger.error('Invaild Password');
+        console.log(e.message, e.stack);
         process.exit();
       }
     }
