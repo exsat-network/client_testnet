@@ -63,7 +63,7 @@ async function main() {
     ],
   };
 
-  const actions: { [key: string]: () => Promise<void> } = {
+  const actions: { [key: string]: () => Promise<any> } = {
     manager_account: async () => await bootstrap('manageAccount'),
     launch_client: async () => await bootstrap('launch_client'),
     set_btc_node: async () => await bootstrap('set_btc_node'),
