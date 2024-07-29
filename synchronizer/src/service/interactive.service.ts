@@ -2,8 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from '~/common/logger/logger';
 import { readdirSync, readFileSync } from 'fs';
-import { chargeBtcForResource, decryptKeystore } from 'account-initializer';
-import { password, confirm } from '@inquirer/prompts';
+import {
+  chargeBtcForResource,
+  chargeForRegistry,
+  decryptKeystore,
+} from 'account-initializer';
+import { password, confirm, input } from '@inquirer/prompts';
 import { SynchronizerSerivce } from '~/service/synchronizer.serivce';
 import { ExsatService } from '~/service/exsat.service';
 import { retry } from '~/utils/http';
@@ -64,6 +68,10 @@ export class InteractiveService {
       try {
         if (commandOptions.pwd) {
           await this.decryptKeystoreWithPassword(commandOptions.pwd);
+        } else if (commandOptions.pwdfile) {
+          const password = readFileSync(commandOptions.pwdfile, 'utf-8').trim();
+
+          await this.decryptKeystoreWithPassword(password);
         } else {
           await retry(async () => {
             const passwordInput = await password({
@@ -254,62 +262,122 @@ export class InteractiveService {
     }
     const accountName = this.configService.get<string>('exsat_account');
     const btcBalance = await this.synchronizerService.getBalance(accountName);
-    const checkAccountValid = await checkUsernameWithBackend(accountName);
+    const checkAccountInfo = await checkUsernameWithBackend(accountName);
     const synchronizer =
       await this.synchronizerService.getSynchronizersByAccount(accountName);
     const manageMessage = `-----------------------------------------------
    Account: ${accountName}
    Public Key: ${this.configService.get('exsat_publickey')}
    BTC Balance: ${btcBalance} ${synchronizer ? `\n   Reward Address: ${synchronizer.memo ?? synchronizer.reward_recipient}` : ''}
-   Account Registration Status: ${checkAccountValid ? 'Not Registered' : 'Registered'}
+   Account Registration Status: ${checkAccountInfo.status === 'completed' ? 'Registered' : checkAccountInfo.status === 'initial' ? 'Unregistered. Please recharge Gas Fee (BTC) to register.' : checkAccountInfo.status === 'charging' ? 'Registering, this may take a moment. Please be patient' : 'Invalid'}
    Synchronizer Registration Status: ${synchronizer ? 'Registered' : 'Not Registered'}${synchronizer ? `\n   Memory Slot: ${synchronizer.num_slots}` : ''}
   -----------------------------------------------`;
+    let menus = [];
+    switch (checkAccountInfo.status) {
+      case 'chain_exist':
+      case 'completed':
+        menus = [
+          {
+            name: 'Recharge BTC',
+            value: 'recharge_btc',
+            description: 'Recharge BTC',
+          },
+          {
+            name: synchronizer?.reward_recipient
+              ? 'Reset Reward Address'
+              : 'Set Reward Address',
+            value: 'set_reward_address',
+            description: 'Set/Reset Reward Address',
+            disabled: !synchronizer,
+          },
+          {
+            name: 'Purchase Memory Slot',
+            value: 'purchase_memory_slot',
+            description: 'Purchase Memory Slot',
+            disabled: !synchronizer,
+          },
+          {
+            name: 'Export Private Key',
+            value: 'export_private_key',
+            description: 'Export Private Key',
+          },
+          {
+            name: 'Remove Account',
+            value: 'remove_account',
+            description: 'Remove Account',
+          },
+          new Separator(),
+          {
+            name: 'Back to Main Menu',
+            value: '99',
+            description: 'Back to Main Menu',
+          },
+        ];
+        break;
+      case 'initial':
+        menus = [
+          {
+            name: 'Recharge BTC',
+            value: 'recharge_btc_registry',
+            description: 'Recharge BTC',
+          },
+          {
+            name: 'Export Private Key',
+            value: 'export_private_key',
+            description: 'Export Private Key',
+          },
+          {
+            name: 'Remove Account',
+            value: 'remove_account',
+            description: 'Remove Account',
+          },
+          new Separator(),
+          {
+            name: 'Back to Main Menu',
+            value: '99',
+            description: 'Back to Main Menu',
+          },
+        ];
+        break;
+      case 'charging':
+        menus = [
+          {
+            name: 'Export Private Key',
+            value: 'export_private_key',
+            description: 'Export Private Key',
+          },
+          {
+            name: 'Remove Account',
+            value: 'remove_account',
+            description: 'Remove Account',
+          },
+          new Separator(),
+          {
+            name: 'Back to Main Menu',
+            value: '99',
+            description: 'Back to Main Menu',
+          },
+        ];
+        break;
+      default:
+        return;
+    }
 
-    const menus = [
-      {
-        name: 'Recharge BTC',
-        value: 'recharge_btc',
-        description: 'Recharge BTC',
-      },
-      {
-        name: synchronizer?.reward_recipient
-          ? 'Reset Reward Address'
-          : 'Set Reward Address',
-        value: 'set_reward_address',
-        description: 'Set/Reset Reward Address',
-        disabled: !synchronizer,
-      },
-      {
-        name: 'Purchase Memory Slot',
-        value: 'purchase_memory_slot',
-        description: 'Purchase Memory Slot',
-        disabled: !synchronizer,
-      },
-      {
-        name: 'Export Private Key',
-        value: 'export_private_key',
-        description: 'Export Private Key',
-      },
-      {
-        name: 'Remove Account',
-        value: 'remove_account',
-        description: 'Remove Account',
-      },
-      new Separator(),
-      {
-        name: 'Back to Main Menu',
-        value: '99',
-        description: 'Back to Main Menu',
-      },
-    ];
     const actions: { [key: string]: () => Promise<any> } = {
       recharge_btc: async () => await chargeBtcForResource(this.encFile),
+      recharge_btc_registry: async () =>
+        await chargeForRegistry(
+          accountName,
+          checkAccountInfo.btcAddress,
+          checkAccountInfo.amount,
+        ),
       set_reward_address: async () => await this.setRewardAddress(),
       purchase_memory_slot: async () => await this.purchaseSlots(),
       export_private_key: async () => {
         console.log(
           `Private Key:${this.configService.get('exsat_privatekey')}`,
         );
+        await input({ message: 'Press [enter] to continue' });
       },
       remove_account: async () => await this.removeKeystore(),
     };

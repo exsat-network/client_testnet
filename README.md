@@ -208,6 +208,24 @@ Start the client by executing the script:
 ./exsat.sh
 ```
 
+#### Alternatively, you can start the client using Yarn directly. First, navigate to the appropriate directory (`synchronizer` or `validator`), and then execute the command with the desired parameters:
+
+```sh
+cd synchronizer && yarn start
+```
+or 
+```sh
+cd validator && yarn start
+```
+#### Parameters
+
+| Parameter       | Description                                                            | Example                                                      |
+|-----------------|---------------------------------------------------------------------   |--------------------------------------------------------------|
+| `--pwd`         | Provides the password directly.                                        | `yarn start --pwd mysecretpassword`                          |
+| `--pwdfile`     | Provides the file path containing the password.                        | `yarn start --pwdfile /path/to/password.txt`                 |
+| `--run`         | Directly start the client, skipping the menu operations.               | `yarn start --run`                                           |
+
+
 ## Act as Synchronizer
 
 Please follow the [documents about synchronizer](https://docs.exsat.network/user-guide-for-testnet-nexus/synchronizer) to act as synchronizer.
