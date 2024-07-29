@@ -3,6 +3,7 @@ import 'dotenv/config';
 import { bootstrap } from '~/bootstrap';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+
 import {
   importFromMnemonic,
   importFromPrivateKey,
@@ -11,6 +12,7 @@ import {
 import { program } from 'commander';
 const commandOptions = program
   .option('--pwd <password>', 'Set password for keystore')
+  .option('--pwdfile <password>', 'Set password for keystore')
   .option('--run', 'Run synchronizer')
   .parse(process.argv)
   .opts();
@@ -63,7 +65,7 @@ async function main() {
     ],
   };
 
-  const actions: { [key: string]: () => Promise<void> } = {
+  const actions: { [key: string]: () => Promise<any> } = {
     manager_account: async () => await bootstrap('manageAccount'),
     launch_client: async () => await bootstrap('launch_client'),
     set_btc_node: async () => await bootstrap('set_btc_node'),

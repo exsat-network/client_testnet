@@ -8,7 +8,7 @@ import {readdirSync, readFileSync} from "fs";
 import path from "node:path";
 import {confirm, input, password, select, Separator} from "@inquirer/prompts";
 import {
-  chargeBtcForResource,
+  chargeBtcForResource, chargeForRegistry, checkUsernameWithBackend,
   decryptKeystore,
   importFromMnemonic,
   importFromPrivateKey,
@@ -16,11 +16,11 @@ import {
 } from "account-initializer";
 import fs from "node:fs";
 import * as dotenv from 'dotenv';
-import {checkUsernameWithBackend} from "account-initializer/dist/accountInitializer";
 import process from 'process';
 import { program } from 'commander';
 const commandOptions = program
     .option('--pwd <password>', 'Set password for keystore')
+    .option('--pwdfile <passwordFile>', 'Set password for keystore')
     .option('--run', 'Run synchronizer')
     .parse(process.argv)
     .opts();
@@ -48,6 +48,9 @@ async function checkKeystoreAndParse(){
   }
   if(commandOptions.pwd){
     return decryptKeystoreWithPassword(commandOptions.pwd)
+  } else if(commandOptions.pwdfile) {
+    const password = readFileSync(commandOptions.pwdfile, 'utf-8').trim();
+    await decryptKeystoreWithPassword(password);
   }else{
     try {
       return await retry(async () => {
@@ -410,14 +413,14 @@ async function manageAccount() {
 
   const accountName = accountInfo.accountName;
   const btcBalance = await exsat.getBalance(accountName);
-  const checkAccountValid = await checkUsernameWithBackend(accountName);
+  const checkAccountInfo = await checkUsernameWithBackend(accountName);
   const validator =
       await exsat.getValidatorByAccount(accountName);
   let manageMessage = `-----------------------------------------------
    Account: ${accountName}
    Public Key: ${accountInfo.address}
    BTC Balance: ${btcBalance} ${validator ? `\n   Reward Address: ${validator.memo ?? validator.reward_recipient}\n   Commission Rate: ${validator.commission_rate/100}%` : ''}
-   Account Registration Status: ${checkAccountValid ? 'Not Registered' : 'Registered'}
+   Account Registration Status: ${checkAccountInfo.status === 'completed' ? 'Registered' : checkAccountInfo.status === 'initial' ? 'Unregistered. Please recharge Gas Fee (BTC) to register.' : checkAccountInfo.status === 'charging' ? 'Registering, this may take a moment. Please be patient' : 'Invalid'}
    Validator Registration Status: ${validator ? 'Registered' : 'Not Registered'}`;
   if(validator){
     manageMessage += `
@@ -429,41 +432,97 @@ async function manageAccount() {
   -----------------------------------------------`;
   }
 
-  const menus = [
-    {
-      name: 'Recharge BTC',
-      value: 'recharge_btc',
-      description: 'Recharge BTC',
-    },
-    {
-      name: `${validator?.reward_recipient?'Reset':'Set'} Reward Address And Commission Rate`,
-      value: 'set_reward_address',
-      description: 'Set/Reset Reward Address',
-    },
-    {
-      name: 'Export Private Key',
-      value: 'export_private_key',
-      description: 'Export Private Key',
-    },
-    {
-      name: 'Remove Account',
-      value: 'remove_account',
-      description: 'Remove Account',
-    },
-    new Separator(),
-    {
-      name: 'Back to Main Menu',
-      value: '99',
-      description: 'Back to Main Menu',
-    },
-  ];
+
+  let menus = [];
+  switch (checkAccountInfo.status) {
+    case 'chain_exist':
+    case 'completed':
+      menus =[
+        {
+          name: 'Recharge BTC',
+          value: 'recharge_btc',
+          description: 'Recharge BTC',
+        },
+        {
+          name: `${validator?.reward_recipient?'Reset':'Set'} Reward Address And Commission Rate`,
+          value: 'set_reward_address',
+          description: 'Set/Reset Reward Address',
+        },
+        {
+          name: 'Export Private Key',
+          value: 'export_private_key',
+          description: 'Export Private Key',
+        },
+        {
+          name: 'Remove Account',
+          value: 'remove_account',
+          description: 'Remove Account',
+        },
+        new Separator(),
+        {
+          name: 'Back to Main Menu',
+          value: '99',
+          description: 'Back to Main Menu',
+        },
+      ];
+      break;
+    case 'initial':
+      menus = [
+        {
+          name: 'Recharge BTC',
+          value: 'recharge_btc_registry',
+          description: 'Recharge BTC',
+        },
+        {
+          name: 'Export Private Key',
+          value: 'export_private_key',
+          description: 'Export Private Key',
+        },
+        {
+          name: 'Remove Account',
+          value: 'remove_account',
+          description: 'Remove Account',
+        },
+        new Separator(),
+        {
+          name: 'Back to Main Menu',
+          value: '99',
+          description: 'Back to Main Menu',
+        },
+      ];
+      break;
+    case 'charging':
+      menus = [
+        {
+          name: 'Export Private Key',
+          value: 'export_private_key',
+          description: 'Export Private Key',
+        },
+        {
+          name: 'Remove Account',
+          value: 'remove_account',
+          description: 'Remove Account',
+        },
+        new Separator(),
+        {
+          name: 'Back to Main Menu',
+          value: '99',
+          description: 'Back to Main Menu',
+        },
+      ];
+      break;
+    default:
+      return;
+  }
   const actions: { [key: string]: () => Promise<any> } = {
     recharge_btc: async () => await chargeBtcForResource(encFile),
+    recharge_btc_registry: async () => await chargeForRegistry(accountName,checkAccountInfo.btcAddress,checkAccountInfo.amount),
     set_reward_address: async () => await setValidatorConfig(),
     export_private_key: async () => {
       console.log(
           `Private Key:${accountInfo.privateKey}`,
       );
+      await input({message:"Press [enter] to continue"});
     },
     remove_account: async () => await removeKeystore(),
   };
