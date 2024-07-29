@@ -69,7 +69,7 @@ export class InteractiveService {
         if (commandOptions.pwd) {
           await this.decryptKeystoreWithPassword(commandOptions.pwd);
         } else if (commandOptions.pwdfile) {
-          const password = readFileSync(commandOptions.pwdfile, 'utf-8');
+          const password = readFileSync(commandOptions.pwdfile, 'utf-8').trim();
 
           await this.decryptKeystoreWithPassword(password);
         } else {
