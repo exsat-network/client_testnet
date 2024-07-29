@@ -68,10 +68,12 @@ export class InteractiveService {
       try {
         if (commandOptions.pwd) {
           await this.decryptKeystoreWithPassword(commandOptions.pwd);
-        } else if(commandOptions.pwdfile) {
+        } else if (commandOptions.pwdfile) {
           const password = readFileSync(commandOptions.pwdfile, 'utf-8');
+          console.log(path.resolve(commandOptions.pwdfile));
+          console.log(password);
           await this.decryptKeystoreWithPassword(password);
-        }else{
+        } else {
           await retry(async () => {
             const passwordInput = await password({
               message:
