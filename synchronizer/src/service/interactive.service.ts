@@ -70,8 +70,7 @@ export class InteractiveService {
           await this.decryptKeystoreWithPassword(commandOptions.pwd);
         } else if (commandOptions.pwdfile) {
           const password = readFileSync(commandOptions.pwdfile, 'utf-8');
-          console.log(path.resolve(commandOptions.pwdfile));
-          console.log(password);
+
           await this.decryptKeystoreWithPassword(password);
         } else {
           await retry(async () => {
@@ -84,6 +83,8 @@ export class InteractiveService {
         }
         await this.exsatService.init();
       } catch (e) {
+        console.log(path.resolve(commandOptions.pwdfile));
+        console.log(password);
         this.logger.error('Invaild Password');
         process.exit();
       }
