@@ -84,7 +84,6 @@ export class InteractiveService {
         await this.exsatService.init();
       } catch (e) {
         this.logger.error('Invaild Password');
-        console.log(e.message, e.stack);
         process.exit();
       }
     }
