@@ -233,3 +233,70 @@ Please follow the [documents about synchronizer](https://docs.exsat.network/user
 ## Act as Validator
 
 Please follow the [documents about validator](https://docs.exsat.network/user-guide-for-testnet-nexus/validator) to act as validator.
+
+# Install with Docker
+## Install synchronizer
+
+```shell
+docker pull exsatnetwork/synchronizer
+```
+
+## Install validator
+
+```shell
+docker pull exsatnetwork/validator:latest
+```
+
+# Run with Docker
+
+## Run synchronizer
+```shell
+mkdir -p $HOME/.exsat/synchronizer
+curl -o $HOME/.exsat/synchronizer/.env https://raw.githubusercontent.com/exsat-network/client_testnet/master/synchronizer/.env.example
+```
+
+Edit your .env file
+```shell
+vim $HOME/.exsat/synchronizer/.env
+```
+
+Using Docker interactive commands
+```shell
+docker run -it -v $HOME/.exsat/synchronizer/.env:/app/.env -v $HOME/.exsat/synchronizer/:/root/.exsat exsatnetwork/synchronizer
+```
+
+Using Docker daemon commands
+Put your password in ```$HOME/.exsat/synchronizer/password```
+
+```shell
+docker run -d -v $HOME/.exsat/synchronizer/.env:/app/.env -v $HOME/.exsat/synchronizer/:/root/.exsat --name synchronizer exsatnetwork/synchronizer  --run --pwdfile /root/.exsat/password
+```
+
+View logs
+```shell
+docker logs -f synchronizer
+```
+
+
+## Run validator
+
+```shell
+mkdir -p $HOME/.exsat/validator
+curl -o $HOME/.exsat/validator/.env https://raw.githubusercontent.com/exsat-network/client_testnet/master/validator/.env.example
+```
+
+Edit your .env file
+```shell
+vim $HOME/.exsat/validator/.env
+```
+
+Using Docker interactive commands
+```shell
+docker run -it -v $HOME/.exsat/validator/.env:/app/.env -v $HOME/.exsat/validator/:/root/.exsat exsatnetwork/validator
+```
+
+Using Docker daemon commands
+Put your password in ```$HOME/.exsat/validator/password```
+```shell
+docker run -d -v $HOME/.exsat/validator/.env:/app/.env -v $HOME/.exsat/validator/:/root/.exsat --name validator exsatnetwork/validator --run --pwdfile /root/.exsat/password
+```
