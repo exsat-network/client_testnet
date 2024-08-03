@@ -1,5 +1,7 @@
 # exSat Official Testnet
 
+The current Git repository only describes the operations on the client side. If you need complete instructions on how to register and run the Synchronizer and Validator on the exSat hayek testnet, please refer to this link for more comprehensive information: [https://docs.exsat.network/user-guide-for-testnet-hayek](https://docs.exsat.network/user-guide-for-testnet-hayek).
+
 ## Hardware Requirement
 
 Recommended Configuration:
