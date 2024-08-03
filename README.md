@@ -238,7 +238,7 @@ Please follow the [documents about validator](https://docs.exsat.network/user-gu
 ## Install synchronizer
 
 ```shell
-docker pull exsatnetwork/synchronizer
+docker pull exsatnetwork/synchronizer:latest
 ```
 
 ## Install validator
