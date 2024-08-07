@@ -136,21 +136,30 @@ export class Exsat {
         async () => {
           try {
             // @ts-ignore
-            const res = await this.session.client.v1.chain.get_table_rows({
-              json:params.json??true,
-              index_position: params.index_position,
-              // @ts-ignore
-              code: params.code,
-              scope: params.scope,
-              // @ts-ignore
-              table: params.table,
-              lower_bound: params.from,
-              upper_bound: params.to,
-              limit: params.maxRows,
-              // @ts-ignore
-              key_type: params.key_type,
-            });
-            return res.rows;
+            let allRows = [];
+            let lowerBound = params.from;
+            while (true) {
+              const res = await this.session.client.v1.chain.get_table_rows({
+                index_position: params.index_position,
+                code: params.code,
+                scope: params.scope,
+                table: params.table,
+                lower_bound: lowerBound,
+                upper_bound: params.to,
+                limit: params.maxRows,
+                key_type: params.key_type,
+                json: true,
+              });
+              allRows = allRows.concat(res.rows);
+              // If there is no more data, exit the loop
+              if (!res.more || params.maxRows) {
+                break;
+              }
+              // Update lower_bound to the key value of the last row to get the next page of data
+              lowerBound = res.next_key;
+            }
+
+            return allRows;
           } catch (error) {
             //todo Determine whether the node url is unavailable
             //await this.updateExsatAgent();
