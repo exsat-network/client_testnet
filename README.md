@@ -1,5 +1,7 @@
 # exSat Official Testnet
 
+The current Git repository only describes the operations on the client side. If you need complete instructions on how to register and run the Synchronizer and Validator on the exSat hayek testnet, please refer to this link for more comprehensive information: [https://docs.exsat.network/user-guide-for-testnet-hayek](https://docs.exsat.network/user-guide-for-testnet-hayek).
+
 ## Hardware Requirement
 
 Recommended Configuration:
@@ -235,10 +237,11 @@ Please follow the [documents about synchronizer](https://docs.exsat.network/user
 Please follow the [documents about validator](https://docs.exsat.network/user-guide-for-testnet-nexus/validator) to act as validator.
 
 # Install with Docker
+
 ## Install synchronizer
 
 ```shell
-docker pull exsatnetwork/synchronizer
+docker pull exsatnetwork/synchronizer:latest
 ```
 
 ## Install validator
@@ -248,6 +251,10 @@ docker pull exsatnetwork/validator:latest
 ```
 
 # Run with Docker
+
+When running the client through Docker, it is recommanded to first run it in the foreground interactively to complete account registration and configuration, and then run it in the background for long-term operation. 
+
+When creating an account, make sure to save your seed phrase carefully. After the client generates the private key using the seed phrase, it will save the encrypted private key in a keystore file, and you will choose where to save the keystore file. Be sure to select a path that is mapped to the host machine's storage (e.g. if you're running the docker with the supplied "-v" parameters as below example codes, in the "Choose a directory to save the keystore" step, you could choose the option that save the keystore at "/root/.exsat/synchronizer" or "/root/.exsat/validator"). This way, the keystore file will be saved on the host machine. Otherwise, if you remove the Docker container, the keystore file will be lost, and you will need to regenerate the keystore file by importing the seed phrase.
 
 ## Run synchronizer
 ```shell
