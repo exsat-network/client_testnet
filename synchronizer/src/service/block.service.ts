@@ -414,13 +414,15 @@ export class BlockService {
    * Get mingPool by comparing account
    */
   async getSynchronizersByAccount(account) {
-    const pools = await this.getSynchronizers();
-    for (const pool of pools) {
-      if (pool.synchronizer === account) {
-        return pool;
-      }
-    }
-    return false;
+    const params: ExsatGetTableRowDto = {
+      code: this.configService.get<string>('contract.account.poolreg'),
+      table: 'synchronizer',
+      from: account,
+      to: account,
+      key_type: 'sha256',
+    };
+    const res = await this.exsatService.getTableRow(params);
+    return res.length > 0 ? res[0] : false;
   }
 
   /**
