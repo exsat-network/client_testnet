@@ -3,6 +3,7 @@ import { Name, Checksum160 } from '@wharfkit/antelope'
 import fs from "node:fs";
 import * as dotenv from "dotenv";
 import {input} from "@inquirer/prompts";
+import path from "node:path";
 
 type Checksum256 = Buffer
 
@@ -148,4 +149,35 @@ export function updateEnvFile(values) {
     fs.writeFileSync(envFilePath, updatedEnvContent);
 
     return true;
+}
+export function reloadEnv() {
+    const envFilePath = path.resolve(__dirname, '../', '.env');
+    if (!fs.existsSync(envFilePath)) {
+        throw new Error('No .env file found');
+    }
+    dotenv.config({ override: true, path: envFilePath });
+}
+export function isDocker(): boolean {
+    try {
+        // Check for /.dockerenv file
+        if (fs.existsSync('/.dockerenv')) {
+            return true;
+        }
+
+        // Check for /proc/1/cgroup file and look for docker or kubepods
+        const cgroupPath = '/proc/1/cgroup';
+        if (fs.existsSync(cgroupPath)) {
+            const cgroupContent = fs.readFileSync(cgroupPath, 'utf-8');
+            if (
+                cgroupContent.includes('docker') ||
+                cgroupContent.includes('kubepods')
+            ) {
+                return true;
+            }
+        }
+    } catch (err) {
+        console.error('Error checking if running in Docker:', err);
+    }
+
+    return false;
 }

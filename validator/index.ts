@@ -3,7 +3,7 @@ import cron from 'node-cron';
 import {getblockcount, getblockhash} from "./utils/bitcoin";
 import {Exsat} from "./utils/exsat";
 import {logger} from './utils/logger';
-import {inputWithCancel, isEndorserQualified, retry, sleep, updateEnvFile} from './utils/util';
+import {inputWithCancel, isEndorserQualified, reloadEnv, retry, sleep, updateEnvFile} from './utils/util';
 import {readdirSync, readFileSync} from "fs";
 import path from "node:path";
 import {confirm, input, password, select, Separator} from "@inquirer/prompts";
@@ -18,6 +18,7 @@ import fs from "node:fs";
 import * as dotenv from 'dotenv';
 import process from 'process';
 import { program } from 'commander';
+import {RETRY_INTERVAL_MS} from "./utils/constants";
 const commandOptions = program
     .option('--pwd <password>', 'Set password for keystore')
     .option('--pwdfile <passwordFile>', 'Set password for keystore')
@@ -107,7 +108,7 @@ async function setValidatorConfig() {
   });
   if(commissionRate.toLowerCase() === 'q'){return false}
   const financialAccount = await input({
-    message: 'Enter Reward Account(Input "q" to return):',
+    message: 'Enter Reward Address(Input "q" to return):',
     validate: (input: string) => {
       if(input.toLowerCase() === 'q'){return true}
       if (!/^0x[a-fA-F0-9]{40}$/.test(input)) {
@@ -159,6 +160,7 @@ async function validatorWork() {
       await checkAndSubmitEndorsement(accountName, blockcountInfo.result, blockhashInfo.result);
     } catch (e) {
       console.error('Endorse task error', e);
+      await sleep(RETRY_INTERVAL_MS)
     } finally {
       endorseRunning = false;
     }
@@ -182,10 +184,11 @@ async function validatorWork() {
         const blockhash = await getblockhash(i+800);
         logger.info(`Checking endorsement for block ${i}/${blockcount.result}`);
         await checkAndSubmitEndorsement(accountName, i, blockhash.result);
-        sleep(1000)
+        await sleep(RETRY_INTERVAL_MS)
       }
     } catch (e) {
       console.error('Endorse check task error', e);
+      await sleep(RETRY_INTERVAL_MS)
     } finally {
       endorseCheckRunning = false;
     }
@@ -193,6 +196,7 @@ async function validatorWork() {
 
 }
 function existKeystore(): boolean {
+  reloadEnv()
   const file = process.env.KEYSTORE_FILE;
   if (file && fs.existsSync(file)) {
     return true;

@@ -17,7 +17,7 @@ import select, { Separator } from '@inquirer/select';
 import { checkUsernameWithBackend } from 'account-initializer/dist/accountInitializer';
 import * as path from 'node:path';
 import process from 'node:process';
-import { inputWithCancel } from '~/utils/input';
+import {inputWithCancel, isValidUrl} from '~/utils/input';
 import { updateEnvFile } from '~/utils/env';
 import { commandOptions } from '~/main';
 
@@ -158,7 +158,7 @@ export class InteractiveService {
   async checkAndSetBtcRpcUrl() {
     const rpcUrl = this.configService.get('BTC_RPC_URL');
 
-    if (!rpcUrl || !this.isValidUrl(rpcUrl)) {
+    if (!rpcUrl || !isValidUrl(rpcUrl)) {
       this.logger.log('BTC_RPC_URL is not set or not in the correct format.');
       // Prompt user for new BTC_RPC_URL
       const res = await this.setBtcRpcUrl();
@@ -188,7 +188,7 @@ export class InteractiveService {
     const btcRpcUrl = await inputWithCancel(
       'Please enter new BTC_RPC_URL(Input "q" to return): ',
       (input) => {
-        if (!this.isValidUrl(input)) {
+        if (!isValidUrl(input)) {
           return 'Please enter a valid URL';
         }
         return true;
@@ -392,23 +392,5 @@ export class InteractiveService {
         await (actions[action] || (() => {}))();
       }
     } while (action !== '99');
-  }
-  // Function to validate URL
-  isValidUrl(url: string): boolean {
-    try {
-      new URL(url);
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
-  // Functions to validate JSON strings
-  isValidJson(jsonString: string): boolean {
-    try {
-      JSON.parse(jsonString);
-      return true;
-    } catch (error) {
-      return false;
-    }
   }
 }

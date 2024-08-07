@@ -10,6 +10,7 @@ import {
   initializeAccount,
 } from 'account-initializer';
 import { program } from 'commander';
+import { reloadEnv, updateEnvFile } from '~/utils/env';
 const commandOptions = program
   .option('--pwd <password>', 'Set password for keystore')
   .option('--pwdfile <password>', 'Set password for keystore')
@@ -87,11 +88,12 @@ async function main() {
 
 // Determine whether a file with the suffix _keystore.json exists in root_dir. If it exists, return true, otherwise return false.
 function existKeystore(): boolean {
+  reloadEnv();
   const file = process.env.KEYSTORE_FILE;
   if (file && fs.existsSync(file)) {
     return true;
   }
-
+  return false;
   const dir = path.resolve(__dirname, '..');
   const files = fs.readdirSync(dir);
   for (let i = 0; i < files.length; i++) {
@@ -100,4 +102,5 @@ function existKeystore(): boolean {
 
   return false;
 }
+
 main().then(() => function () {});
