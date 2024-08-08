@@ -5,8 +5,9 @@ import { readdirSync, readFileSync } from 'fs';
 import {
   chargeBtcForResource,
   chargeForRegistry,
+  checkUsernameWithBackend,
   decryptKeystore,
-} from 'account-initializer';
+} from '@exsat/account-initializer';
 import { password, confirm, input } from '@inquirer/prompts';
 import { SynchronizerSerivce } from '~/service/synchronizer.serivce';
 import { ExsatService } from '~/service/exsat.service';
@@ -14,10 +15,9 @@ import { retry } from '~/utils/http';
 import * as fs from 'node:fs';
 import { BtcService } from '~/service/btc.service';
 import select, { Separator } from '@inquirer/select';
-import { checkUsernameWithBackend } from 'account-initializer/dist/accountInitializer';
 import * as path from 'node:path';
 import process from 'node:process';
-import {inputWithCancel, isValidUrl} from '~/utils/input';
+import { inputWithCancel, isValidUrl } from '~/utils/input';
 import { updateEnvFile } from '~/utils/env';
 import { commandOptions } from '~/main';
 
@@ -278,9 +278,9 @@ export class InteractiveService {
       case 'completed':
         menus = [
           {
-            name: 'Recharge BTC',
+            name: 'Bridge BTC as GAS Fee',
             value: 'recharge_btc',
-            description: 'Recharge BTC',
+            description: 'Bridge BTC as GAS Fee',
           },
           {
             name: synchronizer?.reward_recipient
@@ -317,9 +317,9 @@ export class InteractiveService {
       case 'initial':
         menus = [
           {
-            name: 'Recharge BTC',
+            name: 'Bridge BTC as GAS Fee',
             value: 'recharge_btc_registry',
-            description: 'Recharge BTC',
+            description: 'Bridge BTC as GAS Fee',
           },
           {
             name: 'Export Private Key',

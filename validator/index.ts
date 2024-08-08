@@ -443,9 +443,9 @@ async function manageAccount() {
     case 'completed':
       menus =[
         {
-          name: 'Recharge BTC',
+          name: 'Bridge BTC as GAS Fee',
           value: 'recharge_btc',
-          description: 'Recharge BTC',
+          description: 'Bridge BTC as GAS Fee',
         },
         {
           name: `${validator?.reward_recipient?'Reset':'Set'} Reward Address And Commission Rate`,
@@ -473,9 +473,9 @@ async function manageAccount() {
     case 'initial':
       menus = [
         {
-          name: 'Recharge BTC',
+          name: 'Bridge BTC as GAS Fee',
           value: 'recharge_btc_registry',
-          description: 'Recharge BTC',
+          description: 'Bridge BTC as GAS Fee',
         },
         {
           name: 'Export Private Key',

@@ -8,9 +8,9 @@ import {
   importFromMnemonic,
   importFromPrivateKey,
   initializeAccount,
-} from 'account-initializer';
+} from '@exsat/account-initializer';
 import { program } from 'commander';
-import { reloadEnv, updateEnvFile } from '~/utils/env';
+import { reloadEnv } from '~/utils/env';
 const commandOptions = program
   .option('--pwd <password>', 'Set password for keystore')
   .option('--pwdfile <password>', 'Set password for keystore')
