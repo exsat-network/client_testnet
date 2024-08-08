@@ -29,7 +29,7 @@ let exsat:Exsat;
 let accountInfo: any;
 let encFile;
 let [endorseRunning, endorseCheckRunning] = [false, false];
-
+let startupStatus = false;
 
 async function checkKeystoreAndParse(){
   if(process.env.KEYSTORE_FILE){
@@ -138,7 +138,15 @@ async function checkAndSubmitEndorsement(accountName: string, height: number, ha
     await submitEndorsement(accountName, height, hash);
   }
 }
-
+async function checkStartupStatus(){
+  if(startupStatus) return true;
+  const res = await exsat.getStartupStatus();
+  if(res === false || res === 1) {
+    return false;
+  }
+  startupStatus = true;
+  return true;
+}
 async function validatorWork() {
   if(!accountInfo) await checkKeystoreAndParse()
 
@@ -146,7 +154,12 @@ async function validatorWork() {
   const accountName = accountInfo.accountName;
   exsat = new Exsat();
   await exsat.init(accountInfo.privateKey, accountName);
+
   cron.schedule(config.get('cron.endorseSchedule'), async () => {
+    if (!await checkStartupStatus()) {
+      logger.info('Startup status is not ready.');
+      return;
+    }
     try {
       if (endorseRunning) {
         logger.info('Endorse task is already running. Skipping this round.');
@@ -165,6 +178,9 @@ async function validatorWork() {
   });
 
   cron.schedule(config.get('cron.endorseCheckSchedule'), async () => {
+    if (!await checkStartupStatus()) {
+      return;
+    }
     if (endorseCheckRunning) {
       logger.info('Endorse check task is already running. Skipping this round.');
       return;
@@ -540,7 +556,6 @@ async function manageAccount() {
 }
 
 main().then(() => {
-  logger.info('Validator started.');
 }).catch((e) => {
   logger.error(e);
 });
