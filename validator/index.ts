@@ -3,7 +3,7 @@ import cron from 'node-cron';
 import {getblockcount, getblockhash} from "./utils/bitcoin";
 import {Exsat} from "./utils/exsat";
 import {logger} from './utils/logger';
-import {inputWithCancel, isEndorserQualified, reloadEnv, retry, sleep, updateEnvFile} from './utils/util';
+import {inputWithCancel, isEndorserQualified, parseCurrency, reloadEnv, retry, sleep, updateEnvFile} from './utils/util';
 import {readdirSync, readFileSync} from "fs";
 import path from "node:path";
 import {confirm, input, password, select, Separator} from "@inquirer/prompts";
@@ -13,7 +13,7 @@ import {
   importFromMnemonic,
   importFromPrivateKey,
   initializeAccount,
-} from "account-initializer";
+} from "@exsat/account-initializer";
 import fs from "node:fs";
 import * as dotenv from 'dotenv';
 import process from 'process';
@@ -147,6 +147,24 @@ async function validatorWork() {
   const accountName = accountInfo.accountName;
   exsat = new Exsat();
   await exsat.init(accountInfo.privateKey, accountName);
+
+  try {
+    const res = await getClientStatus(accountName);
+    const result = res.response.processed.action_traces[0].return_value_data;
+    if (!result.has_auth || !result.is_exists) {
+      logger.error(`Unvailable account:${accountName}`);
+      return;
+    }
+    const balance = parseCurrency(result.balance);
+    if (balance.amount < 0.0001) {
+      logger.error('Insufficient balance');
+      return;
+    }
+  } catch (e) {
+    logger.error(`Unvailable account:${accountName}`);
+    return;
+  }
+
   cron.schedule(config.get('cron.endorseSchedule'), async () => {
     try {
       if (endorseRunning) {
@@ -195,6 +213,19 @@ async function validatorWork() {
   });
 
 }
+
+async function getClientStatus(accountName) {
+  const data = {
+    client: accountName,
+    type: 2,
+  };
+  return await  exsat.transact(
+      'rescmng.xsat',
+      'checkclient',
+      data,
+  );
+}
+
 function existKeystore(): boolean {
   reloadEnv()
   const file = process.env.KEYSTORE_FILE;
@@ -423,7 +454,7 @@ async function manageAccount() {
   let manageMessage = `-----------------------------------------------
    Account: ${accountName}
    Public Key: ${accountInfo.address}
-   BTC Balance: ${btcBalance} ${validator ? `\n   Reward Address: ${validator.memo ?? validator.reward_recipient}\n   Commission Rate: ${validator.commission_rate/100}%` : ''}
+   BTC Balance Used for Gas Fee: ${btcBalance} ${validator ? `\n   Reward Address: ${validator.memo ?? validator.reward_recipient}\n   Commission Rate: ${validator.commission_rate/100}%` : ''}
    Account Registration Status: ${checkAccountInfo.status === 'completed' ? 'Registered' : checkAccountInfo.status === 'initial' ? 'Unregistered. Please recharge Gas Fee (BTC) to register.' : checkAccountInfo.status === 'charging' ? 'Registering, this may take a moment. Please be patient' : 'Invalid'}
    Validator Registration Status: ${validator ? 'Registered' : 'Not Registered'}`;
   if(validator){
@@ -544,7 +575,6 @@ async function manageAccount() {
 }
 
 main().then(() => {
-  logger.info('Validator started.');
 }).catch((e) => {
   logger.error(e);
 });

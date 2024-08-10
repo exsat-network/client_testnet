@@ -5,7 +5,6 @@ import { CronJob } from 'cron';
 import { Logger } from '~/common/logger/logger';
 import { ModuleRef } from '@nestjs/core';
 import { BlockUpload } from '~/jobs/block.upload';
-import { MyParse } from '~/jobs/my.parse';
 import { OtherParse } from '~/jobs/other.parse';
 
 @Injectable()

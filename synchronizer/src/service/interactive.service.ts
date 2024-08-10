@@ -20,6 +20,7 @@ import process from 'node:process';
 import { inputWithCancel, isValidUrl } from '~/utils/input';
 import { updateEnvFile } from '~/utils/env';
 import { commandOptions } from '~/main';
+import { parseCurrency } from '~/utils/exsat';
 
 @Injectable()
 export class InteractiveService {
@@ -49,16 +50,29 @@ export class InteractiveService {
 
   async beforeCheck() {
     await this.decryptKeystore();
+    const account = this.configService.get<string>('exsat_account');
     const synchronizer =
-      await this.synchronizerService.getSynchronizersByAccount(
-        this.configService.get<string>('exsat_account'),
-      );
+      await this.synchronizerService.getSynchronizersByAccount(account);
     if (!synchronizer) {
       throw new Error('Unvailable account');
     }
     if (!synchronizer.reward_recipient) {
       await this.setRewardAddress();
     }
+    try {
+      const res = await this.synchronizerService.getClientStatus(account);
+      const result = res.response.processed.action_traces[0].return_value_data;
+      if (!result.has_auth || !result.is_exists) {
+        throw new Error('Unvailable account');
+      }
+      const balance = parseCurrency(result.balance);
+      if (balance.amount < 0.0001) {
+        throw new Error('Insufficient balance');
+      }
+    } catch (e) {
+      throw new Error('Unvailable account');
+    }
+
     await this.checkAndSetBtcRpcUrl();
     this.btcService.init();
   }
@@ -268,7 +282,7 @@ export class InteractiveService {
     const manageMessage = `-----------------------------------------------
    Account: ${accountName}
    Public Key: ${this.configService.get('exsat_publickey')}
-   BTC Balance: ${btcBalance} ${synchronizer ? `\n   Reward Address: ${synchronizer.memo ?? synchronizer.reward_recipient}` : ''}
+   BTC Balance Used for Gas Fee: ${btcBalance} ${synchronizer ? `\n   Reward Address: ${synchronizer.memo ?? synchronizer.reward_recipient}` : ''}
    Account Registration Status: ${checkAccountInfo.status === 'completed' ? 'Registered' : checkAccountInfo.status === 'initial' ? 'Unregistered. Please recharge Gas Fee (BTC) to register.' : checkAccountInfo.status === 'charging' ? 'Registering, this may take a moment. Please be patient' : 'Invalid'}
    Synchronizer Registration Status: ${synchronizer ? 'Registered' : 'Not Registered'}${synchronizer ? `\n   Memory Slot: ${synchronizer.num_slots}` : ''}
   -----------------------------------------------`;

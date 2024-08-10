@@ -181,3 +181,21 @@ export function isDocker(): boolean {
 
     return false;
 }
+
+export type CurrencyAmount = {
+    amount: number;
+    currency?: string;
+};
+
+export function parseCurrency(input: string): CurrencyAmount | null {
+    const currencyRegex = /^(\d+(\.\d+)?)(\s*([A-Za-z]+))?$/;
+    const match = currencyRegex.exec(input);
+    if (!match) {
+        return null;
+    }
+
+    const amount = parseFloat(match[1]);
+    const currency = match[4] ? match[4].toUpperCase() : undefined;
+
+    return { amount, currency };
+}

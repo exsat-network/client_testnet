@@ -202,26 +202,19 @@ export class ExsatService {
   }
 
   async requestExsat(contractAccount, actionName, data) {
-    return retry(
-      async () => {
-        try {
-          const action = {
-            account: contractAccount,
-            name: actionName,
-            authorization: [this.session.permissionLevel],
-            data: data,
-          };
-          const result = await this.session.transact({ action: action });
-          return result;
-        } catch (error) {
-          //todo Determine whether the node url is unavailable
-          //await this.updateExsatAgent();
-          throw error;
-        }
-      },
-      5,
-      200,
-      `request exsat transaction:${actionName}`,
-    );
+    try {
+      const action = {
+        account: contractAccount,
+        name: actionName,
+        authorization: [this.session.permissionLevel],
+        data: data,
+      };
+      const result = await this.session.transact({ action: action });
+      return result;
+    } catch (error) {
+      //todo Determine whether the node url is unavailable
+      //await this.updateExsatAgent();
+      throw error;
+    }
   }
 }
