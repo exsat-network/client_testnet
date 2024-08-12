@@ -54,7 +54,9 @@ export class InteractiveService {
     const synchronizer =
       await this.synchronizerService.getSynchronizersByAccount(account);
     if (!synchronizer) {
-      throw new Error('Unvailable account');
+      throw new Error(
+        `The account[${account}] has not been registered as a synchronizer.Please contact the administrator for verification.`,
+      );
     }
     if (!synchronizer.reward_recipient) {
       await this.setRewardAddress();
@@ -62,15 +64,22 @@ export class InteractiveService {
     try {
       const res = await this.synchronizerService.getClientStatus(account);
       const result = res.response.processed.action_traces[0].return_value_data;
-      if (!result.has_auth || !result.is_exists) {
-        throw new Error('Unvailable account');
+      if (!result.has_auth) {
+        throw new Error(
+          `The account[${account}] permissions do not match.Please check if the keystore file has been imported correctly. `,
+        );
+      }
+      if (!result.is_exists) {
+        throw new Error(
+          `The account[${account}] has not been registered as a synchronizer.Please contact the administrator for verification.`,
+        );
       }
       const balance = parseCurrency(result.balance);
       if (balance.amount < 0.0001) {
         throw new Error('Insufficient balance');
       }
     } catch (e) {
-      throw new Error('Unvailable account');
+      throw new Error(e.message);
     }
 
     await this.checkAndSetBtcRpcUrl();
