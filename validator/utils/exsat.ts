@@ -1,12 +1,12 @@
-import config from 'config';
 import axios from 'axios';
 import moment from 'moment';
-import { ContractKit } from "@wharfkit/contract"
-import {API, APIClient, Serializer} from '@wharfkit/antelope'
-import { Session } from "@wharfkit/session"
-import { WalletPluginPrivateKey } from "@wharfkit/wallet-plugin-privatekey"
+import { ContractKit } from '@wharfkit/contract';
+import { API, APIClient, Serializer } from '@wharfkit/antelope';
+import { Session } from '@wharfkit/session';
+import { WalletPluginPrivateKey } from '@wharfkit/wallet-plugin-privatekey';
 import { logger } from './logger';
-import {retry} from "./util";
+import { retry } from './util';
+import { EXSAT_RPC_URLS } from './constants';
 
 export type ExsatGetTableRowDto = {
   json?: boolean;
@@ -20,16 +20,16 @@ export type ExsatGetTableRowDto = {
   index?: string;
 
   index_position?:
-      | 'primary'
-      | 'secondary'
-      | 'tertiary'
-      | 'fourth'
-      | 'fifth'
-      | 'sixth'
-      | 'seventh'
-      | 'eighth'
-      | 'ninth'
-      | 'tenth';
+    | 'primary'
+    | 'secondary'
+    | 'tertiary'
+    | 'fourth'
+    | 'fifth'
+    | 'sixth'
+    | 'seventh'
+    | 'eighth'
+    | 'ninth'
+    | 'tenth';
 
   key_type?: keyof API.v1.TableIndexTypes;
 
@@ -50,15 +50,26 @@ export class Exsat {
   private contractKit: ContractKit | undefined;
 
   async init(privateKey: string, accountName: string) {
-    accountName = accountName.endsWith('.sat')?accountName:`${accountName}.sat`
-    const chain: { id: string, url: string } = {
-      id: config.get<string>('exsatRpc.chainId'),
-      url:  config.get<string[]>('exsatRpc.customUrls')?config.get<string[]>('exsatRpc.customUrls')[0]: config.get<string[]>('exsatRpc.defaultUrls')[0]
+    accountName = accountName.endsWith('.sat') ? accountName : `${accountName}.sat`;
+
+    let urls = EXSAT_RPC_URLS;
+    if (!urls || urls.length === 0) {
+      const config = await this.fetchExsatChainInfo();
+      if (config && config.info.exsat_rpc) {
+        urls = config.info.exsat_rpc;
+      }
     }
+    if (!urls || urls.length === 0) {
+      throw new Error('No valid EXSAT RPC URL found');
+    }
+
+    const { rpcUrl, chainId } = await this.findValidRpcUrl(urls);
+
+    const chain = { id: chainId, url: rpcUrl };
     const walletPlugin = new WalletPluginPrivateKey(privateKey);
     this.session = new Session({
       actor: accountName,
-      permission: "active",
+      permission: 'active',
       chain,
       walletPlugin,
     });
@@ -69,40 +80,70 @@ export class Exsat {
     });
   }
 
-  async updateExsatAgent() {
-    const urls:string[] = config.get('exsatRpc.customUrls')?config.get('exsatRpc.customUrls'): config.get('exsatRpc.defaultUrls');
+  async fetchExsatChainInfo() {
+    const response = await axios.get(
+      `${process.env.ACCOUNT_INITIALIZER_API_BASE_URL}/api/config/exsat_config`,
+      {
+        headers: {
+          'x-api-key': process.env.ACCOUNT_INITIALIZER_API_SECRET,
+        },
+      },
+    );
+    return response.data;
+  }
 
+  async findValidRpcUrl(urls) {
+    logger.info(`exsat rpc urls: ${urls.toString()}`);
+    for (const url of urls) {
+      try {
+        const res = await this.getInfo(url);
+        if (res.data) {
+          logger.info(`valid rpc url: ${url}`);
+          return { rpcUrl: res.url, chainId: res.data.chain_id };
+        }
+      } catch (error) {
+        // Log error if needed
+      }
+    }
+    throw new Error('No valid RPC URL found');
+  }
+
+  async updateExsatAgent() {
+    let urls: string[];
+    if (EXSAT_RPC_URLS) {
+      urls = JSON.parse(EXSAT_RPC_URLS);
+    } else {
+      throw new Error('No EXSAT_RPC_URLS found');
+    }
     const blockBucketsPromises = urls.map((url) => this.getInfo(url));
     const validUrls = await Promise.all(blockBucketsPromises);
     for (const url of validUrls) {
-      if (url.valid) {
+      if (url.data && url.ping <= 30000) {
         this.contractKit = new ContractKit({
           client: new APIClient({
             url: url.url,
           }),
         });
-        // @ts-ignore
         this.session.chain.url = url.url;
-        return;
+        break;
       }
     }
     throw new Error('No valid EXSAT RPC URL');
   }
 
-  async getInfo(url: string){
-    let valid;
+  async getInfo(url: string) {
     try {
       const response = await axios.get(`${url}/v1/chain/get_info`);
       if (response.status === 200 && response.data) {
         const diffMS: number =
-            moment(response.data.head_block_time).diff(moment().valueOf()) +
-            moment().utcOffset() * 60_000;
-        valid = Math.abs(diffMS) <= 300_000;
+          moment(response.data.head_block_time).diff(moment().valueOf()) +
+          moment().utcOffset() * 60_000;
+        return { url, data: response.data, ping: Math.abs(diffMS) };
       }
     } catch (e) {
       throw new Error(`Error getInfo from EXSAT RPC: [${url}]`);
     }
-    return { url, valid };
+    return { url, data: false, ping: 0 };
   }
 
   async transact(account: string, name: string, data: object): Promise<any> {
@@ -113,7 +154,7 @@ export class Exsat {
       // @ts-ignore
       authorization: [this.session.permissionLevel],
       data: data,
-    }
+    };
     // @ts-ignore
     return await this.session.transact({ action: action });
   }
@@ -123,7 +164,7 @@ export class Exsat {
       throw new Error('ContractKit is not initialized.');
     }
     const contract = await this.contractKit.load('utxomng.xsat');
-    const row = await contract.table("chainstate").get();
+    const row = await contract.table('chainstate').get();
     if (row) {
       return Serializer.objectify(row).irreversible_height;
     }
@@ -133,57 +174,57 @@ export class Exsat {
 
   async getTableRow(params: ExsatGetTableRowDto) {
     return await retry(
-        async () => {
-          try {
-            // @ts-ignore
-            let allRows = [];
-            let lowerBound = params.from;
-            while (true) {
-              const res = await this.session.client.v1.chain.get_table_rows({
-                index_position: params.index_position,
-                code: params.code,
-                scope: params.scope,
-                table: params.table,
-                lower_bound: lowerBound,
-                upper_bound: params.to,
-                limit: params.maxRows,
-                key_type: params.key_type,
-                json: true,
-              });
-              allRows = allRows.concat(res.rows);
-              // If there is no more data, exit the loop
-              if (!res.more || params.maxRows) {
-                break;
-              }
-              // Update lower_bound to the key value of the last row to get the next page of data
-              lowerBound = res.next_key;
+      async () => {
+        try {
+          // @ts-ignore
+          let allRows = [];
+          let lowerBound = params.from;
+          while (true) {
+            const res = await this.session.client.v1.chain.get_table_rows({
+              index_position: params.index_position,
+              code: params.code,
+              scope: params.scope,
+              table: params.table,
+              lower_bound: lowerBound,
+              upper_bound: params.to,
+              limit: params.maxRows,
+              key_type: params.key_type,
+              json: true,
+            });
+            allRows = allRows.concat(res.rows);
+            // If there is no more data, exit the loop
+            if (!res.more || params.maxRows) {
+              break;
             }
-
-            return allRows;
-          } catch (error) {
-            //todo Determine whether the node url is unavailable
-            //await this.updateExsatAgent();
-            // @ts-ignore
-            if (error.cause && error.cause.name === 'ConnectTimeoutError') {
-              throw error;
-            }
-            // @ts-ignore
-            logger.error(`retry error：${error.message}`, error);
-            return [];
+            // Update lower_bound to the key value of the last row to get the next page of data
+            lowerBound = res.next_key;
           }
-        },
-        3,
+
+          return allRows;
+        } catch (error) {
+          //todo Determine whether the node url is unavailable
+          //await this.updateExsatAgent();
+          // @ts-ignore
+          if (error.cause && error.cause.name === 'ConnectTimeoutError') {
+            throw error;
+          }
+          // @ts-ignore
+          logger.error(`retry error：${error.message}`, error);
+          return [];
+        }
+      },
+      3,
     );
   }
 
 
-  async getEndorsementByBlockId(height:number,hash: string): Promise<any> {
+  async getEndorsementByBlockId(height: number, hash: string): Promise<any> {
     if (!this.contractKit) {
       throw new Error('ContractKit is not initialized.');
     }
     const res = await this.session?.client.v1.chain.get_table_rows({
-      code:'blkendt.xsat',
-      table:'endorsements',
+      code: 'blkendt.xsat',
+      table: 'endorsements',
       index_position: 'secondary',
       scope: height.toString(),
       // @ts-ignore
@@ -192,15 +233,15 @@ export class Exsat {
       lower_bound: hash,
       key_type: 'sha256',
       limit: 1,
-    })
-    const rows = res?res.rows: null;
+    });
+    const rows = res ? res.rows : null;
     if (rows && rows.length > 0) {
       return Serializer.objectify(rows[0]);
     }
     return null;
   }
 
-  async getBalance(accountName){
+  async getBalance(accountName) {
     const params: ExsatGetTableRowDto = {
       code: 'rescmng.xsat',
       table: 'accounts',
@@ -214,7 +255,8 @@ export class Exsat {
     }
     return 0;
   }
-  async getValidatorByAccount(accountName){
+
+  async getValidatorByAccount(accountName) {
     const params = {
       code: 'endrmng.xsat',
       table: 'validators',
@@ -222,8 +264,17 @@ export class Exsat {
       from: accountName,
       to: accountName,
     };
-    const rows =  await this.getTableRow(params);
+    const rows = await this.getTableRow(params);
     return rows ? rows[0] : false;
+  }
+
+  async getStartupStatus() {
+    const params = {
+      code: 'blkendt.xsat',
+      table: 'config',
+    };
+    const rows = await this.getTableRow(params);
+    return rows && rows.length > 0 && rows[0].disabled_endorse === 0;
   }
 
 }

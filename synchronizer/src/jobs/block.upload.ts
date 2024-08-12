@@ -115,7 +115,7 @@ export class BlockUpload extends BaseJob {
         );
         this.logger.error(error);
       }
-      sleep(1000);
+      await sleep(1000);
     }
   }
 

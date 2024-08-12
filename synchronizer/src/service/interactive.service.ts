@@ -5,8 +5,9 @@ import { readdirSync, readFileSync } from 'fs';
 import {
   chargeBtcForResource,
   chargeForRegistry,
+  checkUsernameWithBackend,
   decryptKeystore,
-} from 'account-initializer';
+} from '@exsat/account-initializer';
 import { password, confirm, input } from '@inquirer/prompts';
 import { SynchronizerSerivce } from '~/service/synchronizer.serivce';
 import { ExsatService } from '~/service/exsat.service';
@@ -14,12 +15,12 @@ import { retry } from '~/utils/http';
 import * as fs from 'node:fs';
 import { BtcService } from '~/service/btc.service';
 import select, { Separator } from '@inquirer/select';
-import { checkUsernameWithBackend } from 'account-initializer/dist/accountInitializer';
 import * as path from 'node:path';
 import process from 'node:process';
-import { inputWithCancel } from '~/utils/input';
+import { inputWithCancel, isValidUrl } from '~/utils/input';
 import { updateEnvFile } from '~/utils/env';
 import { commandOptions } from '~/main';
+import { parseCurrency } from '~/utils/exsat';
 
 @Injectable()
 export class InteractiveService {
@@ -49,16 +50,38 @@ export class InteractiveService {
 
   async beforeCheck() {
     await this.decryptKeystore();
+    const account = this.configService.get<string>('exsat_account');
     const synchronizer =
-      await this.synchronizerService.getSynchronizersByAccount(
-        this.configService.get<string>('exsat_account'),
-      );
+      await this.synchronizerService.getSynchronizersByAccount(account);
     if (!synchronizer) {
-      throw new Error('Unvailable account');
+      throw new Error(
+        `The account[${account}] has not been registered as a synchronizer.Please contact the administrator for verification.`,
+      );
     }
     if (!synchronizer.reward_recipient) {
       await this.setRewardAddress();
     }
+    try {
+      const res = await this.synchronizerService.getClientStatus(account);
+      const result = res.response.processed.action_traces[0].return_value_data;
+      if (!result.has_auth) {
+        throw new Error(
+          `The account[${account}] permissions do not match.Please check if the keystore file has been imported correctly. `,
+        );
+      }
+      if (!result.is_exists) {
+        throw new Error(
+          `The account[${account}] has not been registered as a synchronizer.Please contact the administrator for verification.`,
+        );
+      }
+      const balance = parseCurrency(result.balance);
+      if (balance.amount < 0.0001) {
+        throw new Error('Insufficient balance');
+      }
+    } catch (e) {
+      throw new Error(e.message);
+    }
+
     await this.checkAndSetBtcRpcUrl();
     this.btcService.init();
   }
@@ -158,7 +181,7 @@ export class InteractiveService {
   async checkAndSetBtcRpcUrl() {
     const rpcUrl = this.configService.get('BTC_RPC_URL');
 
-    if (!rpcUrl || !this.isValidUrl(rpcUrl)) {
+    if (!rpcUrl || !isValidUrl(rpcUrl)) {
       this.logger.log('BTC_RPC_URL is not set or not in the correct format.');
       // Prompt user for new BTC_RPC_URL
       const res = await this.setBtcRpcUrl();
@@ -188,7 +211,7 @@ export class InteractiveService {
     const btcRpcUrl = await inputWithCancel(
       'Please enter new BTC_RPC_URL(Input "q" to return): ',
       (input) => {
-        if (!this.isValidUrl(input)) {
+        if (!isValidUrl(input)) {
           return 'Please enter a valid URL';
         }
         return true;
@@ -268,7 +291,7 @@ export class InteractiveService {
     const manageMessage = `-----------------------------------------------
    Account: ${accountName}
    Public Key: ${this.configService.get('exsat_publickey')}
-   BTC Balance: ${btcBalance} ${synchronizer ? `\n   Reward Address: ${synchronizer.memo ?? synchronizer.reward_recipient}` : ''}
+   BTC Balance Used for Gas Fee: ${btcBalance} ${synchronizer ? `\n   Reward Address: ${synchronizer.memo ?? synchronizer.reward_recipient}` : ''}
    Account Registration Status: ${checkAccountInfo.status === 'completed' ? 'Registered' : checkAccountInfo.status === 'initial' ? 'Unregistered. Please recharge Gas Fee (BTC) to register.' : checkAccountInfo.status === 'charging' ? 'Registering, this may take a moment. Please be patient' : 'Invalid'}
    Synchronizer Registration Status: ${synchronizer ? 'Registered' : 'Not Registered'}${synchronizer ? `\n   Memory Slot: ${synchronizer.num_slots}` : ''}
   -----------------------------------------------`;
@@ -278,9 +301,9 @@ export class InteractiveService {
       case 'completed':
         menus = [
           {
-            name: 'Recharge BTC',
+            name: 'Bridge BTC as GAS Fee',
             value: 'recharge_btc',
-            description: 'Recharge BTC',
+            description: 'Bridge BTC as GAS Fee',
           },
           {
             name: synchronizer?.reward_recipient
@@ -317,9 +340,9 @@ export class InteractiveService {
       case 'initial':
         menus = [
           {
-            name: 'Recharge BTC',
+            name: 'Bridge BTC as GAS Fee',
             value: 'recharge_btc_registry',
-            description: 'Recharge BTC',
+            description: 'Bridge BTC as GAS Fee',
           },
           {
             name: 'Export Private Key',
@@ -392,23 +415,5 @@ export class InteractiveService {
         await (actions[action] || (() => {}))();
       }
     } while (action !== '99');
-  }
-  // Function to validate URL
-  isValidUrl(url: string): boolean {
-    try {
-      new URL(url);
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
-  // Functions to validate JSON strings
-  isValidJson(jsonString: string): boolean {
-    try {
-      JSON.parse(jsonString);
-      return true;
-    } catch (error) {
-      return false;
-    }
   }
 }

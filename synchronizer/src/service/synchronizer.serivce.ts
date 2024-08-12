@@ -74,6 +74,18 @@ export class SynchronizerSerivce {
     return rows ? rows[0] : false;
   }
 
+  async getClientStatus(accountName) {
+    const data = {
+      client: accountName,
+      type: 1,
+    };
+    return await this.exsatService.requestExsat(
+      'rescmng.xsat',
+      'checkclient',
+      data,
+    );
+  }
+
   async getBalance(accountName) {
     const params: ExsatGetTableRowDto = {
       code: this.configService.get<string>('contract.account.rescmng'),

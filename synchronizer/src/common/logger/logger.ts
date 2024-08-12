@@ -38,10 +38,16 @@ export class Logger extends ConsoleLogger {
     }) as LogLevel;
   }
 
-  protected get maxFiles(): number {
-    return this.configService.get('LOGGER_MAX_FILES', { infer: true });
+  protected get fileDir(): string {
+    return this.configService.get('LOGGER_DIR', 'logs');
   }
 
+  protected get maxSize(): string {
+    return this.configService.get('LOGGER_MAX_SIZE', '20m');
+  }
+  protected get maxFiles(): string {
+    return this.configService.get('LOGGER_MAX_FILES', '30d');
+  }
   protected initWinston(): void {
     this.winstonLogger = createLogger({
       levels: config.npm.levels,
@@ -53,19 +59,21 @@ export class Logger extends ConsoleLogger {
       transports: [
         new transports.DailyRotateFile({
           level: this.level,
-          filename: 'logs/app.%DATE%.log',
+          filename: `${this.fileDir}/app.%DATE%.log`,
           datePattern: 'YYYY-MM-DD',
           maxFiles: this.maxFiles,
           format: format.combine(format.timestamp(), format.json()),
           auditFile: 'logs/.audit/app.json',
+          maxSize: this.maxSize,
         }),
         new transports.DailyRotateFile({
           level: LogLevel.ERROR,
-          filename: 'logs/app-error.%DATE%.log',
+          filename: `${this.fileDir}/app-error.%DATE%.log`,
           datePattern: 'YYYY-MM-DD',
           maxFiles: this.maxFiles,
           format: format.combine(format.timestamp(), format.json()),
           auditFile: 'logs/.audit/app-error.json',
+          maxSize: this.maxSize,
         }),
       ],
     });
