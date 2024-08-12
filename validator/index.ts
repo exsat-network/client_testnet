@@ -41,6 +41,9 @@ let accountInfo: any;
 let encFile;
 let [endorseRunning, endorseCheckRunning] = [false, false];
 
+let startupStatus = false;
+
+
 async function checkKeystoreAndParse(){
   if(process.env.KEYSTORE_FILE){
     encFile = process.env.KEYSTORE_FILE;
@@ -150,7 +153,15 @@ async function checkAndSubmitEndorsement(accountName: string, height: number, ha
     await submitEndorsement(accountName, height, hash);
   }
 }
-
+async function checkStartupStatus(){
+  if(startupStatus) return true;
+  const res = await exsat.getStartupStatus();
+  if(res === false || res === 1) {
+    return false;
+  }
+  startupStatus = true;
+  return true;
+}
 async function validatorWork() {
   if(!accountInfo) await checkKeystoreAndParse()
 
@@ -177,6 +188,10 @@ async function validatorWork() {
   }
 
   cron.schedule(JOBS_ENDORSE, async () => {
+    if (!await checkStartupStatus()) {
+      logger.info('Startup status is not ready.');
+      return;
+    }
     try {
       if (endorseRunning) {
         logger.info('Endorse task is already running. Skipping this round.');
@@ -195,7 +210,11 @@ async function validatorWork() {
     }
   });
 
+
   cron.schedule(JOBS_ENDORSE_CHECK, async () => {
+    if (!await checkStartupStatus()) {
+      return;
+    }
     if (endorseCheckRunning) {
       logger.info('Endorse check task is already running. Skipping this round.');
       return;
