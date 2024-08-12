@@ -1,24 +1,34 @@
-import config from 'config';
 import cron from 'node-cron';
-import {getblockcount, getblockhash} from "./utils/bitcoin";
-import {Exsat} from "./utils/exsat";
-import {logger} from './utils/logger';
-import {inputWithCancel, isEndorserQualified, parseCurrency, reloadEnv, retry, sleep, updateEnvFile} from './utils/util';
-import {readdirSync, readFileSync} from "fs";
-import path from "node:path";
-import {confirm, input, password, select, Separator} from "@inquirer/prompts";
+import { getblockcount, getblockhash } from './utils/bitcoin';
+import { Exsat } from './utils/exsat';
+import { logger } from './utils/logger';
 import {
-  chargeBtcForResource, chargeForRegistry, checkUsernameWithBackend,
+  inputWithCancel,
+  isEndorserQualified,
+  parseCurrency,
+  reloadEnv,
+  retry,
+  sleep,
+  updateEnvFile
+} from './utils/util';
+import { readdirSync, readFileSync } from 'fs';
+import path from 'node:path';
+import { confirm, input, password, select, Separator } from '@inquirer/prompts';
+import {
+  chargeBtcForResource,
+  chargeForRegistry,
+  checkUsernameWithBackend,
   decryptKeystore,
   importFromMnemonic,
   importFromPrivateKey,
   initializeAccount,
-} from "@exsat/account-initializer";
-import fs from "node:fs";
+} from '@exsat/account-initializer';
+import fs from 'node:fs';
 import * as dotenv from 'dotenv';
 import process from 'process';
 import { program } from 'commander';
-import {RETRY_INTERVAL_MS} from "./utils/constants";
+import { JOBS_ENDORSE, JOBS_ENDORSE_CHECK, RETRY_INTERVAL_MS } from './utils/constants';
+
 const commandOptions = program
     .option('--pwd <password>', 'Set password for keystore')
     .option('--pwdfile <passwordFile>', 'Set password for keystore')
@@ -30,7 +40,6 @@ let exsat:Exsat;
 let accountInfo: any;
 let encFile;
 let [endorseRunning, endorseCheckRunning] = [false, false];
-
 
 async function checkKeystoreAndParse(){
   if(process.env.KEYSTORE_FILE){
@@ -167,7 +176,7 @@ async function validatorWork() {
     return;
   }
 
-  cron.schedule(config.get('cron.endorseSchedule'), async () => {
+  cron.schedule(JOBS_ENDORSE, async () => {
     try {
       if (endorseRunning) {
         logger.info('Endorse task is already running. Skipping this round.');
@@ -186,7 +195,7 @@ async function validatorWork() {
     }
   });
 
-  cron.schedule(config.get('cron.endorseCheckSchedule'), async () => {
+  cron.schedule(JOBS_ENDORSE_CHECK, async () => {
     if (endorseCheckRunning) {
       logger.info('Endorse check task is already running. Skipping this round.');
       return;
