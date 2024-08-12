@@ -53,16 +53,14 @@ export class Exsat {
     accountName = accountName.endsWith('.sat') ? accountName : `${accountName}.sat`;
 
     let urls = EXSAT_RPC_URLS;
-
-    if (!urls) {
-      try {
-        const config = await this.fetchExsatChainInfo();
-        if (config && config.info.exsat_rpc) {
-          urls = config.info.exsat_rpc;
-        }
-      } catch (error) {
-        // urls = config.get<string[]>('exsatRpc.defaultUrls');
+    if (!urls || urls.length === 0) {
+      const config = await this.fetchExsatChainInfo();
+      if (config && config.info.exsat_rpc) {
+        urls = config.info.exsat_rpc;
       }
+    }
+    if (!urls || urls.length === 0) {
+      throw new Error('No valid EXSAT RPC URL found');
     }
 
     const { rpcUrl, chainId } = await this.findValidRpcUrl(urls);
@@ -83,20 +81,15 @@ export class Exsat {
   }
 
   async fetchExsatChainInfo() {
-    return await retry(
-      async () => {
-        const response = await axios.get(
-          `${process.env.ACCOUNT_INITIALIZER_API_BASE_URL}/v1/chain/get_info`,
-          {
-            headers: {
-              'x-api-key': process.env.ACCOUNT_INITIALIZER_API_SECRET,
-            },
-          },
-        );
-        return response.data;
+    const response = await axios.get(
+      `${process.env.ACCOUNT_INITIALIZER_API_BASE_URL}/api/config/exsat_config`,
+      {
+        headers: {
+          'x-api-key': process.env.ACCOUNT_INITIALIZER_API_SECRET,
+        },
       },
-      3,
     );
+    return response.data;
   }
 
   async findValidRpcUrl(urls) {
@@ -118,6 +111,8 @@ export class Exsat {
     let urls: string[];
     if (EXSAT_RPC_URLS) {
       urls = JSON.parse(EXSAT_RPC_URLS);
+    } else {
+      throw new Error('No EXSAT_RPC_URLS found');
     }
     const blockBucketsPromises = urls.map((url) => this.getInfo(url));
     const validUrls = await Promise.all(blockBucketsPromises);
