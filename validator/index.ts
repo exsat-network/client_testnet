@@ -95,10 +95,10 @@ async function setValidatorConfig() {
   if(!accountInfo) await checkKeystoreAndParse()
 
   const accountName = accountInfo.accountName;
-  const commissionRate = await input({
+  let commissionRate = await input({
     message: 'Enter commission rate (0-10000, Input "q" to return):',
     validate: (input) => {
-      if(input.toLowerCase() === 'q'){return true}
+      if(input.trim().toLowerCase() === 'q'){return true}
       const number = Number(input);
       if (!Number.isInteger(number) || number < 0 || number > 10000) {
         return 'Please enter a valid integer between 0 and 10000.';
@@ -106,17 +106,19 @@ async function setValidatorConfig() {
       return true;
     }
   });
+  commissionRate = commissionRate.trim();
   if(commissionRate.toLowerCase() === 'q'){return false}
-  const financialAccount = await input({
+  let financialAccount = await input({
     message: 'Enter Reward Address(Input "q" to return):',
     validate: (input: string) => {
-      if(input.toLowerCase() === 'q'){return true}
+      if(input.trim().toLowerCase() === 'q'){return true}
       if (!/^0x[a-fA-F0-9]{40}$/.test(input)) {
         return 'Please enter a valid account name.';
       }
       return true;
     }
   });
+  financialAccount = financialAccount.trim();
   if(financialAccount.toLowerCase() === 'q'){return false}
 
   try {
