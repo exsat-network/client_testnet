@@ -30,13 +30,13 @@ import { program } from 'commander';
 import { JOBS_ENDORSE, JOBS_ENDORSE_CHECK, RETRY_INTERVAL_MS } from './utils/constants';
 
 const commandOptions = program
-    .option('--pwd <password>', 'Set password for keystore')
-    .option('--pwdfile <passwordFile>', 'Set password for keystore')
-    .option('--run', 'Run synchronizer')
-    .parse(process.argv)
-    .opts();
+  .option('--pwd <password>', 'Set password for keystore')
+  .option('--pwdfile <passwordFile>', 'Set password for keystore')
+  .option('--run', 'Run synchronizer')
+  .parse(process.argv)
+  .opts();
 
-let exsat:Exsat;
+let exsat: Exsat;
 let accountInfo: any;
 let encFile;
 let [endorseRunning, endorseCheckRunning] = [false, false];
@@ -44,50 +44,52 @@ let [endorseRunning, endorseCheckRunning] = [false, false];
 let startupStatus = false;
 
 
-async function checkKeystoreAndParse(){
-  if(process.env.KEYSTORE_FILE){
+async function checkKeystoreAndParse() {
+  if (process.env.KEYSTORE_FILE) {
     encFile = process.env.KEYSTORE_FILE;
-  }else{
+  } else {
     const rootDir = path.resolve(__dirname);
     const files = readdirSync(rootDir).filter((file) =>
-        file.endsWith('_keystore.json'),
+      file.endsWith('_keystore.json'),
     );
     if (files.length > 0) {
       encFile = path.resolve(rootDir, files[0]);
-    }else{
+    } else {
       console.log('No keystore file found, please create one first');
       process.exit();
     }
   }
-  if(commandOptions.pwd){
-    return decryptKeystoreWithPassword(commandOptions.pwd)
-  } else if(commandOptions.pwdfile) {
+  if (commandOptions.pwd) {
+    return decryptKeystoreWithPassword(commandOptions.pwd);
+  } else if (commandOptions.pwdfile) {
     const password = readFileSync(commandOptions.pwdfile, 'utf-8').trim();
     await decryptKeystoreWithPassword(password);
-  }else{
+  } else {
     try {
       return await retry(async () => {
-        const passwordInput = await password({message: 'Enter your password(5 incorrect passwords will exit the program)'});
+        const passwordInput = await password({ message: 'Enter your password(5 incorrect passwords will exit the program)' });
 
-        return decryptKeystoreWithPassword(passwordInput)
-      },5);
-    }catch (error) {
+        return decryptKeystoreWithPassword(passwordInput);
+      }, 5);
+    } catch (error) {
       console.log('Error:Invaild Password');
       process.exit();
     }
   }
 
 }
+
 async function decryptKeystoreWithPassword(password: string) {
   const keystore = readFileSync(encFile, 'utf-8');
 
   const keystoreInfo = JSON.parse(keystore);
   const accountName = keystoreInfo.username.endsWith('.sat') ? keystoreInfo.username : `${keystoreInfo.username}.sat`;
   const data = await decryptKeystore(keystore, password);
-  accountInfo = {...keystoreInfo, privateKey: data, accountName}
-  await checkExsatInstance()
-  return {account: accountName, privateKey: data};
+  accountInfo = { ...keystoreInfo, privateKey: data, accountName };
+  await checkExsatInstance();
+  return { account: accountName, privateKey: data };
 }
+
 async function submitEndorsement(validator: string, height: number, hash: string) {
   try {
     const result = await exsat.transact('blkendt.xsat', 'endorse', { validator, height, hash });
@@ -96,21 +98,25 @@ async function submitEndorsement(validator: string, height: number, hash: string
     logger.error(`submit endorsement error, accountName: ${validator}, height: ${height}, hash: ${hash}`, error);
   }
 }
-async function checkExsatInstance(){
-  if(!exsat){
-    exsat=new Exsat();
+
+async function checkExsatInstance() {
+  if (!exsat) {
+    exsat = new Exsat();
     await exsat.init(accountInfo.privateKey, accountInfo.accountName);
   }
 
 }
+
 async function setValidatorConfig() {
-  if(!accountInfo) await checkKeystoreAndParse()
+  if (!accountInfo) await checkKeystoreAndParse();
 
   const accountName = accountInfo.accountName;
   let commissionRate = await input({
     message: 'Enter commission rate (0-10000, Input "q" to return):',
     validate: (input) => {
-      if(input.trim().toLowerCase() === 'q'){return true}
+      if (input.trim().toLowerCase() === 'q') {
+        return true;
+      }
       const number = Number(input);
       if (!Number.isInteger(number) || number < 0 || number > 10000) {
         return 'Please enter a valid integer between 0 and 10000.';
@@ -119,11 +125,15 @@ async function setValidatorConfig() {
     }
   });
   commissionRate = commissionRate.trim();
-  if(commissionRate.toLowerCase() === 'q'){return false}
+  if (commissionRate.toLowerCase() === 'q') {
+    return false;
+  }
   let financialAccount = await input({
     message: 'Enter Reward Address(Input "q" to return):',
     validate: (input: string) => {
-      if(input.trim().toLowerCase() === 'q'){return true}
+      if (input.trim().toLowerCase() === 'q') {
+        return true;
+      }
       if (!/^0x[a-fA-F0-9]{40}$/.test(input)) {
         return 'Please enter a valid account name.';
       }
@@ -131,10 +141,16 @@ async function setValidatorConfig() {
     }
   });
   financialAccount = financialAccount.trim();
-  if(financialAccount.toLowerCase() === 'q'){return false}
+  if (financialAccount.toLowerCase() === 'q') {
+    return false;
+  }
 
   try {
-    const result = await exsat.transact('endrmng.xsat', 'config', { validator:accountName, commission_rate:commissionRate, financial_account:financialAccount });
+    const result = await exsat.transact('endrmng.xsat', 'config', {
+      validator: accountName,
+      commission_rate: commissionRate,
+      financial_account: financialAccount
+    });
     logger.info(`Transaction was successfully broadcast! accountName: ${accountName}, commission_rate: ${commissionRate}, financial_account: ${financialAccount}, transaction_id: ${result.response!.transaction_id}`);
   } catch (error) {
     logger.error(`set config error, accountName: ${accountName}, commission_rate: ${commissionRate}, financial_account: ${financialAccount}`, error);
@@ -142,7 +158,7 @@ async function setValidatorConfig() {
 }
 
 async function checkAndSubmitEndorsement(accountName: string, height: number, hash: string) {
-  const endorsement = await exsat.getEndorsementByBlockId(height,hash);
+  const endorsement = await exsat.getEndorsementByBlockId(height, hash);
 
   if (endorsement) {
     let isQualified = isEndorserQualified(endorsement.requested_validators, accountName);
@@ -153,19 +169,19 @@ async function checkAndSubmitEndorsement(accountName: string, height: number, ha
     await submitEndorsement(accountName, height, hash);
   }
 }
-async function checkStartupStatus(){
-  if(startupStatus) return true;
-  const res = await exsat.getStartupStatus();
-  if(res === false || res === 1) {
-    return false;
-  }
-  startupStatus = true;
-  return true;
-}
-async function validatorWork() {
-  if(!accountInfo) await checkKeystoreAndParse()
 
-  await checkAndSetBtcRpcUrl()
+async function checkStartupStatus() {
+  if (startupStatus) {
+    return true;
+  }
+  startupStatus = await exsat.getStartupStatus();
+  return startupStatus;
+}
+
+async function validatorWork() {
+  if (!accountInfo) await checkKeystoreAndParse();
+
+  await checkAndSetBtcRpcUrl();
   const accountName = accountInfo.accountName;
   exsat = new Exsat();
   await exsat.init(accountInfo.privateKey, accountName);
@@ -189,7 +205,7 @@ async function validatorWork() {
 
   cron.schedule(JOBS_ENDORSE, async () => {
     if (!await checkStartupStatus()) {
-      logger.info('Startup status is not ready.');
+      logger.info('The exSat Network has not officially launched yet. Please wait for it to start.');
       return;
     }
     try {
@@ -204,7 +220,7 @@ async function validatorWork() {
       await checkAndSubmitEndorsement(accountName, blockcountInfo.result, blockhashInfo.result);
     } catch (e) {
       console.error('Endorse task error', e);
-      await sleep(RETRY_INTERVAL_MS)
+      await sleep(RETRY_INTERVAL_MS);
     } finally {
       endorseRunning = false;
     }
@@ -219,7 +235,7 @@ async function validatorWork() {
       logger.info('Endorse check task is already running. Skipping this round.');
       return;
     }
-    endorseCheckRunning = true
+    endorseCheckRunning = true;
     try {
       logger.info('Endorse check task is running.');
       const latestRewardHeight = await exsat.getLatestRewardHeight();
@@ -228,15 +244,15 @@ async function validatorWork() {
         return;
       }
       const blockcount = await getblockcount();
-      for (let i = latestRewardHeight+1; i <= blockcount.result; i++) {
-        const blockhash = await getblockhash(i+800);
+      for (let i = latestRewardHeight + 1; i <= blockcount.result; i++) {
+        const blockhash = await getblockhash(i + 800);
         logger.info(`Checking endorsement for block ${i}/${blockcount.result}`);
         await checkAndSubmitEndorsement(accountName, i, blockhash.result);
-        await sleep(RETRY_INTERVAL_MS)
+        await sleep(RETRY_INTERVAL_MS);
       }
     } catch (e) {
       console.error('Endorse check task error', e);
-      await sleep(RETRY_INTERVAL_MS)
+      await sleep(RETRY_INTERVAL_MS);
     } finally {
       endorseCheckRunning = false;
     }
@@ -249,15 +265,15 @@ async function getClientStatus(accountName) {
     client: accountName,
     type: 2,
   };
-  return await  exsat.transact(
-      'rescmng.xsat',
-      'checkclient',
-      data,
+  return await exsat.transact(
+    'rescmng.xsat',
+    'checkclient',
+    data,
   );
 }
 
 function existKeystore(): boolean {
-  reloadEnv()
+  reloadEnv();
   const file = process.env.KEYSTORE_FILE;
   if (file && fs.existsSync(file)) {
     return true;
@@ -289,19 +305,20 @@ async function checkAndSetBtcRpcUrl() {
     logger.info('BTC_RPC_URL is not set or not in the correct format.');
     // Prompt user for new BTC_RPC_URL
     const res = await setBtcRpcUrl(envConfig, envFilePath);
-    if(!res) return false;
+    if (!res) return false;
   } else {
     logger.info('BTC_RPC_URL is already set correctly.');
   }
   return true;
 }
+
 async function resetBtcRpcUrl() {
   const rpcUrl = process.env.BTC_RPC_URL;
   if (rpcUrl) {
     if (
-        !(await confirm({
-          message: `Your BTC_RPC_URL:${rpcUrl}\nAre you sure to reset it?`,
-        }))
+      !(await confirm({
+        message: `Your BTC_RPC_URL:${rpcUrl}\nAre you sure to reset it?`,
+      }))
     ) {
       return;
     }
@@ -311,13 +328,13 @@ async function resetBtcRpcUrl() {
 
 async function setBtcRpcUrl(envConfig?, envFilePath?) {
   const btcRpcUrl = await inputWithCancel(
-      'Please enter new BTC_RPC_URL(Input "q" to return): ',
-      (input) => {
-        if (!isValidUrl(input)) {
-          return 'Please enter a valid URL';
-        }
-        return true;
-      },
+    'Please enter new BTC_RPC_URL(Input "q" to return): ',
+    (input) => {
+      if (!isValidUrl(input)) {
+        return 'Please enter a valid URL';
+      }
+      return true;
+    },
   );
   if (!btcRpcUrl) {
     return false;
@@ -331,18 +348,18 @@ async function setBtcRpcUrl(envConfig?, envFilePath?) {
   let rpcUsername: boolean | string = '';
   let rpcPassword: boolean | string = '';
   if (
-      await confirm({
-        message: 'Do You need to configure the username and password?',
-      })
+    await confirm({
+      message: 'Do You need to configure the username and password?',
+    })
   ) {
     rpcUsername = await inputWithCancel(
-        'Please enter RPC username(Input "q" to return): ',
+      'Please enter RPC username(Input "q" to return): ',
     );
     if (!rpcUsername) {
       return false;
     }
     rpcPassword = await inputWithCancel(
-        'Please enter RPC password(Input "q" to return): ',
+      'Please enter RPC password(Input "q" to return): ',
     );
     if (!rpcPassword) {
       return false;
@@ -353,9 +370,9 @@ async function setBtcRpcUrl(envConfig?, envFilePath?) {
 
   updateEnvFile(values);
 
-  process.env.BTC_RPC_URL = btcRpcUrl
-  process.env.BTC_RPC_USERNAME = rpcUsername
-  process.env.BTC_RPC_PASSWORD = rpcPassword
+  process.env.BTC_RPC_URL = btcRpcUrl;
+  process.env.BTC_RPC_USERNAME = rpcUsername;
+  process.env.BTC_RPC_PASSWORD = rpcPassword;
 
   logger.info('.env file has been updated successfully.');
   return true;
@@ -371,6 +388,7 @@ function isValidUrl(url: string): boolean {
     return false;
   }
 }
+
 // Functions to validate JSON strings
 function isValidJson(jsonString: string): boolean {
   try {
@@ -386,7 +404,7 @@ async function removeKeystore() {
     await retry(async () => {
       const passwordInput = await password({
         message:
-            'Enter your password to Remove Account\n(5 incorrect passwords will exit the program,Enter "q" to return):',
+          'Enter your password to Remove Account\n(5 incorrect passwords will exit the program,Enter "q" to return):',
       });
       if (passwordInput === 'q') {
         return false;
@@ -402,9 +420,10 @@ async function removeKeystore() {
     process.exit();
   }
 }
-async function main(){
+
+async function main() {
   let init = existKeystore();
-  if(init && commandOptions.run){
+  if (init && commandOptions.run) {
     await validatorWork();
     return;
   }
@@ -422,7 +441,7 @@ async function main(){
         description: 'Launch Client',
       },
       {
-        name: `${process.env.BTC_RPC_URL?'Reset':'Set'} BTC RPC Node`,
+        name: `${process.env.BTC_RPC_URL ? 'Reset' : 'Set'} BTC RPC Node`,
         value: 'set_btc_node',
         description: 'Set/Reset BTC RPC Node',
       },
@@ -452,7 +471,7 @@ async function main(){
 
   const actions: { [key: string]: () => Promise<any> } = {
     manager_account: async () => await manageAccount(),
-    launch_client: async () => await  validatorWork(),
+    launch_client: async () => await validatorWork(),
     set_btc_node: async () => await resetBtcRpcUrl(),
     create_account: async () => await initializeAccount('Validator'),
     import_seed_phrase: async () => await importFromMnemonic(),
@@ -469,8 +488,9 @@ async function main(){
     if (action && actions[action]) {
       await actions[action]();
     }
-  } while (!['99','launch_client'].includes(action));
+  } while (!['99', 'launch_client'].includes(action));
 }
+
 async function manageAccount() {
   if (!accountInfo) {
     await checkKeystoreAndParse();
@@ -480,19 +500,19 @@ async function manageAccount() {
   const btcBalance = await exsat.getBalance(accountName);
   const checkAccountInfo = await checkUsernameWithBackend(accountName);
   const validator =
-      await exsat.getValidatorByAccount(accountName);
+    await exsat.getValidatorByAccount(accountName);
   let manageMessage = `-----------------------------------------------
    Account: ${accountName}
    Public Key: ${accountInfo.address}
-   BTC Balance Used for Gas Fee: ${btcBalance} ${validator ? `\n   Reward Address: ${validator.memo ?? validator.reward_recipient}\n   Commission Rate: ${validator.commission_rate/100}%` : ''}
+   BTC Balance Used for Gas Fee: ${btcBalance} ${validator ? `\n   Reward Address: ${validator.memo ?? validator.reward_recipient}\n   Commission Rate: ${validator.commission_rate / 100}%` : ''}
    Account Registration Status: ${checkAccountInfo.status === 'completed' ? 'Registered' : checkAccountInfo.status === 'initial' ? 'Unregistered. Please recharge Gas Fee (BTC) to register.' : checkAccountInfo.status === 'charging' ? 'Registering, this may take a moment. Please be patient' : 'Invalid'}
    Validator Registration Status: ${validator ? 'Registered' : 'Not Registered'}`;
-  if(validator){
+  if (validator) {
     manageMessage += `
-   BTC Staking Status: ${validator.disabled_staking?'Not Accepting Staking':'Accepting Staking'}
+   BTC Staking Status: ${validator.disabled_staking ? 'Not Accepting Staking' : 'Accepting Staking'}
    Amount of BTC Staked: ${validator.quantity}
-  -----------------------------------------------`
-  }else {
+  -----------------------------------------------`;
+  } else {
     manageMessage += `
   -----------------------------------------------`;
   }
@@ -502,14 +522,14 @@ async function manageAccount() {
   switch (checkAccountInfo.status) {
     case 'chain_exist':
     case 'completed':
-      menus =[
+      menus = [
         {
           name: 'Bridge BTC as GAS Fee',
           value: 'recharge_btc',
           description: 'Bridge BTC as GAS Fee',
         },
         {
-          name: `${validator?.reward_recipient?'Reset':'Set'} Reward Address And Commission Rate`,
+          name: `${validator?.reward_recipient ? 'Reset' : 'Set'} Reward Address And Commission Rate`,
           value: 'set_reward_address',
           description: 'Set/Reset Reward Address',
         },
@@ -581,13 +601,13 @@ async function manageAccount() {
   }
   const actions: { [key: string]: () => Promise<any> } = {
     recharge_btc: async () => await chargeBtcForResource(encFile),
-    recharge_btc_registry: async () => await chargeForRegistry(accountName,checkAccountInfo.btcAddress,checkAccountInfo.amount),
+    recharge_btc_registry: async () => await chargeForRegistry(accountName, checkAccountInfo.btcAddress, checkAccountInfo.amount),
     set_reward_address: async () => await setValidatorConfig(),
     export_private_key: async () => {
       console.log(
-          `Private Key:${accountInfo.privateKey}`,
+        `Private Key:${accountInfo.privateKey}`,
       );
-      await input({message:"Press [enter] to continue"});
+      await input({ message: 'Press [enter] to continue' });
     },
     remove_account: async () => await removeKeystore(),
   };
@@ -599,7 +619,8 @@ async function manageAccount() {
       choices: menus,
     });
     if (action !== '99') {
-      await (actions[action] || (() => {}))();
+      await (actions[action] || (() => {
+      }))();
     }
   } while (action !== '99');
 }

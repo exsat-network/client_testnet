@@ -268,13 +268,13 @@ export class Exsat {
     return rows ? rows[0] : false;
   }
 
-  async getStartupStatus(){
+  async getStartupStatus() {
     const params = {
       code: 'blkendt.xsat',
       table: 'config',
     };
-    const rows =  await this.getTableRow(params);
-    return (rows && rows.length>0) ? rows[0].disabled_endorse : false;
+    const rows = await this.getTableRow(params);
+    return rows && rows.length > 0 && rows[0].disabled_endorse === 0;
   }
 
 }
