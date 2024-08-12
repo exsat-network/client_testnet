@@ -7,6 +7,7 @@ import { Session } from "@wharfkit/session"
 import { WalletPluginPrivateKey } from "@wharfkit/wallet-plugin-privatekey"
 import { logger } from './logger';
 import {retry} from "./util";
+import {EXSAT_RPC_URLS} from "./constants";
 
 export type ExsatGetTableRowDto = {
   json?: boolean;
@@ -51,10 +52,23 @@ export class Exsat {
 
   async init(privateKey: string, accountName: string) {
     accountName = accountName.endsWith('.sat')?accountName:`${accountName}.sat`
-    const chain: { id: string, url: string } = {
-      id: config.get<string>('exsatRpc.chainId'),
-      url:  config.get<string[]>('exsatRpc.customUrls')?config.get<string[]>('exsatRpc.customUrls')[0]: config.get<string[]>('exsatRpc.defaultUrls')[0]
+
+    let urls =EXSAT_RPC_URLS
+
+    if (!urls) {
+      try {
+        const config = await this.fetchExsatChainInfo();
+        if (config && config.info.exsat_rpc) {
+          urls = config.info.exsat_rpc;
+        }
+      } catch (error) {
+        urls = config.get<string[]>('exsatRpc.defaultUrls');
+      }
     }
+
+    const { rpcUrl, chainId } = await this.findValidRpcUrl(urls);
+
+    const chain = { id: chainId, url: rpcUrl };
     const walletPlugin = new WalletPluginPrivateKey(privateKey);
     this.session = new Session({
       actor: accountName,
@@ -68,41 +82,72 @@ export class Exsat {
       }),
     });
   }
-
+  async fetchExsatChainInfo() {
+    return await retry(
+        async () => {
+          const response = await axios.get(
+              `${process.env.ACCOUNT_INITIALIZER_API_BASE_URL}/v1/chain/get_info`,
+              {
+                headers: {
+                  'x-api-key':process.env.ACCOUNT_INITIALIZER_API_SECRET,
+                },
+              },
+          );
+          return response.data;
+        },
+        3,
+    );
+  }
+  async findValidRpcUrl(urls) {
+    for (const url of urls) {
+      try {
+        const res = await this.getInfo(url);
+        if (res.data) {
+          return { rpcUrl: res.url, chainId: res.data.chain_id };
+        }
+      } catch (error) {
+        // Log error if needed
+      }
+    }
+    logger.log(urls);
+    throw new Error('No valid RPC URL found');
+  }
   async updateExsatAgent() {
-    const urls:string[] = config.get('exsatRpc.customUrls')?config.get('exsatRpc.customUrls'): config.get('exsatRpc.defaultUrls');
-
+    let urls: string[];
+    if (EXSAT_RPC_URLS) {
+      urls = JSON.parse(EXSAT_RPC_URLS);
+    } else {
+      urls =  config.get<string[]>('exsatRpc.defaultUrls');
+    }
     const blockBucketsPromises = urls.map((url) => this.getInfo(url));
     const validUrls = await Promise.all(blockBucketsPromises);
     for (const url of validUrls) {
-      if (url.valid) {
+      if (url.data && url.ping <= 30000) {
         this.contractKit = new ContractKit({
           client: new APIClient({
             url: url.url,
           }),
         });
-        // @ts-ignore
         this.session.chain.url = url.url;
-        return;
+        break;
       }
     }
     throw new Error('No valid EXSAT RPC URL');
   }
 
-  async getInfo(url: string){
-    let valid;
+  async getInfo(url: string) {
     try {
       const response = await axios.get(`${url}/v1/chain/get_info`);
       if (response.status === 200 && response.data) {
         const diffMS: number =
             moment(response.data.head_block_time).diff(moment().valueOf()) +
             moment().utcOffset() * 60_000;
-        valid = Math.abs(diffMS) <= 300_000;
+        return { url, data: response.data, ping: Math.abs(diffMS) };
       }
     } catch (e) {
       throw new Error(`Error getInfo from EXSAT RPC: [${url}]`);
     }
-    return { url, valid };
+    return { url, data: false, ping: 0 };
   }
 
   async transact(account: string, name: string, data: object): Promise<any> {

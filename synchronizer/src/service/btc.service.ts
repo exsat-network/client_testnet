@@ -95,10 +95,11 @@ export class BtcService {
    * @param delay
    */
   async requestRpc(
-    params,
+    params: { method: string; params: string[] | any[] | undefined[] },
     retries: number = 3,
-    delay: number = 1000,
+    delay?: number,
   ): Promise<any> {
+    delay = this.configService.get('1000', 1000);
     for (const rpcUrl of this.rpcUrls) {
       for (let attempt = 0; attempt < retries; attempt++) {
         try {

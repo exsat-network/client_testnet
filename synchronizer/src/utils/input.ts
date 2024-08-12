@@ -21,3 +21,21 @@ export async function inputWithCancel(
   }
   return value;
 }
+// Function to validate URL
+export function isValidUrl(url: string): boolean {
+  try {
+    new URL(url);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+// Functions to validate JSON strings
+export function isValidJson(jsonString: string): boolean {
+  try {
+    JSON.parse(jsonString);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}

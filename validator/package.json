@@ -18,7 +18,7 @@
     "@wharfkit/contract": "^1.1.5",
     "@wharfkit/session": "^1.3.1",
     "@wharfkit/wallet-plugin-privatekey": "^1.1.0",
-    "account-initializer": "github:exsat-network/account-initializer",
+    "@exsat/account-initializer": "1.0.2",
     "axios": "^1.7.2",
     "bitcoinjs-lib": "^6.1.6",
     "commander": "^12.1.0",
