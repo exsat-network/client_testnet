@@ -93,17 +93,18 @@ export class Exsat {
   }
 
   async findValidRpcUrl(urls) {
+    logger.info(`exsat rpc urls: ${urls.toString()}`);
     for (const url of urls) {
       try {
         const res = await this.getInfo(url);
         if (res.data) {
+          logger.info(`valid rpc url: ${url}`);
           return { rpcUrl: res.url, chainId: res.data.chain_id };
         }
       } catch (error) {
         // Log error if needed
       }
     }
-    logger.log(urls);
     throw new Error('No valid RPC URL found');
   }
 
