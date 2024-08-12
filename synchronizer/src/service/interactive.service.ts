@@ -55,7 +55,7 @@ export class InteractiveService {
       await this.synchronizerService.getSynchronizersByAccount(account);
     if (!synchronizer) {
       throw new Error(
-        `The account[${account}] has not been registered as a synchronizer.Please contact the administrator for verification.`,
+        `The account[${account}] has not been registered as a synchronizer. Please contact the administrator for verification.`,
       );
     }
     if (!synchronizer.reward_recipient) {
@@ -66,22 +66,26 @@ export class InteractiveService {
       const result = res.response.processed.action_traces[0].return_value_data;
       if (!result.has_auth) {
         throw new Error(
-          `The account[${account}] permissions do not match.Please check if the keystore file has been imported correctly. `,
+          `The account[${account}] permissions do not match. Please check if the keystore file[${this.configService.get('KEYSTORE_FILE')}] has been imported correctly. `,
         );
       }
       if (!result.is_exists) {
         throw new Error(
-          `The account[${account}] has not been registered as a synchronizer.Please contact the administrator for verification.`,
+          `The account[${account}] has not been registered as a synchronizer. Please contact the administrator for verification.`,
         );
       }
       const balance = parseCurrency(result.balance);
       if (balance.amount < 0.0001) {
-        throw new Error('Insufficient balance');
+        throw new Error(
+          'The gas fee balance is insufficient. Please recharge through the menu.',
+        );
       }
     } catch (e) {
       throw new Error(e.message);
     }
-
+    this.logger.log(
+      'Synchronizer client configurations are correct, and the startup was successful.',
+    );
     await this.checkAndSetBtcRpcUrl();
     this.btcService.init();
   }
