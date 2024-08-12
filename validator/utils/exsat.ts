@@ -86,7 +86,7 @@ export class Exsat {
     return await retry(
         async () => {
           const response = await axios.get(
-              `${process.env.ACCOUNT_INITIALIZER_API_BASE_URL}/v1/chain/get_info`,
+              `${process.env.ACCOUNT_INITIALIZER_API_BASE_URL}/api/config/exsat_config`,
               {
                 headers: {
                   'x-api-key':process.env.ACCOUNT_INITIALIZER_API_SECRET,

@@ -64,7 +64,7 @@ export class ExsatService {
     return await retry(
       async () => {
         const response = await axios.get(
-          `${this.configService.get('ACCOUNT_INITIALIZER_API_BASE_URL')}/v1/chain/get_info`,
+          `${this.configService.get('ACCOUNT_INITIALIZER_API_BASE_URL')}/api/config/exsat_config`,
           {
             headers: {
               'x-api-key': this.configService.get(
