@@ -183,9 +183,6 @@ async function validatorWork() {
 
   await checkAndSetBtcRpcUrl();
   const accountName = accountInfo.accountName;
-  exsat = new Exsat();
-  await exsat.init(accountInfo.privateKey, accountName);
-
   try {
     const res = await getClientStatus(accountName);
     const result = res.response.processed.action_traces[0].return_value_data;
