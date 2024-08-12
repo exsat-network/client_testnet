@@ -1,23 +1,34 @@
-import config from 'config';
 import cron from 'node-cron';
-import {getblockcount, getblockhash} from "./utils/bitcoin";
-import {Exsat} from "./utils/exsat";
-import {logger} from './utils/logger';
-import {inputWithCancel, isEndorserQualified, retry, sleep, updateEnvFile} from './utils/util';
-import {readdirSync, readFileSync} from "fs";
-import path from "node:path";
-import {confirm, input, password, select, Separator} from "@inquirer/prompts";
+import { getblockcount, getblockhash } from './utils/bitcoin';
+import { Exsat } from './utils/exsat';
+import { logger } from './utils/logger';
 import {
-  chargeBtcForResource, chargeForRegistry, checkUsernameWithBackend,
+  inputWithCancel,
+  isEndorserQualified,
+  parseCurrency,
+  reloadEnv,
+  retry,
+  sleep,
+  updateEnvFile
+} from './utils/util';
+import { readdirSync, readFileSync } from 'fs';
+import path from 'node:path';
+import { confirm, input, password, select, Separator } from '@inquirer/prompts';
+import {
+  chargeBtcForResource,
+  chargeForRegistry,
+  checkUsernameWithBackend,
   decryptKeystore,
   importFromMnemonic,
   importFromPrivateKey,
   initializeAccount,
-} from "account-initializer";
-import fs from "node:fs";
+} from '@exsat/account-initializer';
+import fs from 'node:fs';
 import * as dotenv from 'dotenv';
 import process from 'process';
 import { program } from 'commander';
+import { JOBS_ENDORSE, JOBS_ENDORSE_CHECK, RETRY_INTERVAL_MS } from './utils/constants';
+
 const commandOptions = program
     .option('--pwd <password>', 'Set password for keystore')
     .option('--pwdfile <passwordFile>', 'Set password for keystore')
@@ -29,7 +40,9 @@ let exsat:Exsat;
 let accountInfo: any;
 let encFile;
 let [endorseRunning, endorseCheckRunning] = [false, false];
+
 let startupStatus = false;
+
 
 async function checkKeystoreAndParse(){
   if(process.env.KEYSTORE_FILE){
@@ -94,10 +107,10 @@ async function setValidatorConfig() {
   if(!accountInfo) await checkKeystoreAndParse()
 
   const accountName = accountInfo.accountName;
-  const commissionRate = await input({
+  let commissionRate = await input({
     message: 'Enter commission rate (0-10000, Input "q" to return):',
     validate: (input) => {
-      if(input.toLowerCase() === 'q'){return true}
+      if(input.trim().toLowerCase() === 'q'){return true}
       const number = Number(input);
       if (!Number.isInteger(number) || number < 0 || number > 10000) {
         return 'Please enter a valid integer between 0 and 10000.';
@@ -105,17 +118,19 @@ async function setValidatorConfig() {
       return true;
     }
   });
+  commissionRate = commissionRate.trim();
   if(commissionRate.toLowerCase() === 'q'){return false}
-  const financialAccount = await input({
-    message: 'Enter Reward Account(Input "q" to return):',
+  let financialAccount = await input({
+    message: 'Enter Reward Address(Input "q" to return):',
     validate: (input: string) => {
-      if(input.toLowerCase() === 'q'){return true}
+      if(input.trim().toLowerCase() === 'q'){return true}
       if (!/^0x[a-fA-F0-9]{40}$/.test(input)) {
         return 'Please enter a valid account name.';
       }
       return true;
     }
   });
+  financialAccount = financialAccount.trim();
   if(financialAccount.toLowerCase() === 'q'){return false}
 
   try {
@@ -155,7 +170,24 @@ async function validatorWork() {
   exsat = new Exsat();
   await exsat.init(accountInfo.privateKey, accountName);
 
-  cron.schedule(config.get('cron.endorseSchedule'), async () => {
+  try {
+    const res = await getClientStatus(accountName);
+    const result = res.response.processed.action_traces[0].return_value_data;
+    if (!result.has_auth || !result.is_exists) {
+      logger.error(`Unvailable account:${accountName}`);
+      return;
+    }
+    const balance = parseCurrency(result.balance);
+    if (balance.amount < 0.0001) {
+      logger.error('Insufficient balance');
+      return;
+    }
+  } catch (e) {
+    logger.error(`Unvailable account:${accountName}`);
+    return;
+  }
+
+  cron.schedule(JOBS_ENDORSE, async () => {
     if (!await checkStartupStatus()) {
       logger.info('Startup status is not ready.');
       return;
@@ -172,12 +204,14 @@ async function validatorWork() {
       await checkAndSubmitEndorsement(accountName, blockcountInfo.result, blockhashInfo.result);
     } catch (e) {
       console.error('Endorse task error', e);
+      await sleep(RETRY_INTERVAL_MS)
     } finally {
       endorseRunning = false;
     }
   });
 
-  cron.schedule(config.get('cron.endorseCheckSchedule'), async () => {
+
+  cron.schedule(JOBS_ENDORSE_CHECK, async () => {
     if (!await checkStartupStatus()) {
       return;
     }
@@ -198,17 +232,32 @@ async function validatorWork() {
         const blockhash = await getblockhash(i+800);
         logger.info(`Checking endorsement for block ${i}/${blockcount.result}`);
         await checkAndSubmitEndorsement(accountName, i, blockhash.result);
-        sleep(1000)
+        await sleep(RETRY_INTERVAL_MS)
       }
     } catch (e) {
       console.error('Endorse check task error', e);
+      await sleep(RETRY_INTERVAL_MS)
     } finally {
       endorseCheckRunning = false;
     }
   });
 
 }
+
+async function getClientStatus(accountName) {
+  const data = {
+    client: accountName,
+    type: 2,
+  };
+  return await  exsat.transact(
+      'rescmng.xsat',
+      'checkclient',
+      data,
+  );
+}
+
 function existKeystore(): boolean {
+  reloadEnv()
   const file = process.env.KEYSTORE_FILE;
   if (file && fs.existsSync(file)) {
     return true;
@@ -435,7 +484,7 @@ async function manageAccount() {
   let manageMessage = `-----------------------------------------------
    Account: ${accountName}
    Public Key: ${accountInfo.address}
-   BTC Balance: ${btcBalance} ${validator ? `\n   Reward Address: ${validator.memo ?? validator.reward_recipient}\n   Commission Rate: ${validator.commission_rate/100}%` : ''}
+   BTC Balance Used for Gas Fee: ${btcBalance} ${validator ? `\n   Reward Address: ${validator.memo ?? validator.reward_recipient}\n   Commission Rate: ${validator.commission_rate/100}%` : ''}
    Account Registration Status: ${checkAccountInfo.status === 'completed' ? 'Registered' : checkAccountInfo.status === 'initial' ? 'Unregistered. Please recharge Gas Fee (BTC) to register.' : checkAccountInfo.status === 'charging' ? 'Registering, this may take a moment. Please be patient' : 'Invalid'}
    Validator Registration Status: ${validator ? 'Registered' : 'Not Registered'}`;
   if(validator){
@@ -455,9 +504,9 @@ async function manageAccount() {
     case 'completed':
       menus =[
         {
-          name: 'Recharge BTC',
+          name: 'Bridge BTC as GAS Fee',
           value: 'recharge_btc',
-          description: 'Recharge BTC',
+          description: 'Bridge BTC as GAS Fee',
         },
         {
           name: `${validator?.reward_recipient?'Reset':'Set'} Reward Address And Commission Rate`,
@@ -485,9 +534,9 @@ async function manageAccount() {
     case 'initial':
       menus = [
         {
-          name: 'Recharge BTC',
+          name: 'Bridge BTC as GAS Fee',
           value: 'recharge_btc_registry',
-          description: 'Recharge BTC',
+          description: 'Bridge BTC as GAS Fee',
         },
         {
           name: 'Export Private Key',
