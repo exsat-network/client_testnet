@@ -42,6 +42,6 @@ export const logger = winston.createLogger({
 // If it is not a production environment, the log is printed in the console
 if (process.env.NODE_ENV !== 'production') {
   logger.add(new winston.transports.Console({
-    format: winston.format.simple(),
+    format: winston.format.printf(info => `${info.timestamp} ${info.level}: ${info.message}`)
   }));
 }
