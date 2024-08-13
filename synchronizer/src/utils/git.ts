@@ -54,7 +54,7 @@ export async function checkForUpdates() {
     const localVersion = await getLocalVersion();
     const remoteUrl = await getRemoteUrl();
 
-    // 假设远程版本信息存储在某个固定路径，例如：remoteUrl + '/version.json'
+    // Assume that the remote version information is stored in a fixed path, for example: remoteUrl + '/version.json'
     const remoteVersionUrl = `${remoteUrl}/version.json`;
     const remoteVersion = await getRemoteVersion(remoteVersionUrl);
 

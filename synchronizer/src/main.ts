@@ -11,6 +11,7 @@ import {
 } from '@exsat/account-initializer';
 import { program } from 'commander';
 import { reloadEnv } from '~/utils/env';
+import { Version } from '~/utils/version';
 const commandOptions = program
   .option('--pwd <password>', 'Set password for keystore')
   .option('--pwdfile <password>', 'Set password for keystore')
@@ -19,11 +20,20 @@ const commandOptions = program
   .opts();
 export { commandOptions };
 async function main() {
+  const version = await Version.checkForUpdates();
+  console.log('');
+  if (commandOptions.pwd || commandOptions.pwdfile) {
+    reloadEnv();
+  }
   let init = existKeystore();
   if (init && commandOptions.run) {
     await bootstrap('launch_client');
     return;
   }
+  console.log(
+    'Please note: It is highly recommended that you carefully read the user guide and follow the instructions precisely to avoid any unnecessary issues.\n' +
+      'User Guide: https://docs.exsat.network/user-guide-for-testnet-hayek',
+  );
   const rpcUrl = process.env.BTC_RPC_URL;
   const menus = {
     mainWithKeystore: [

@@ -146,18 +146,34 @@ export class BlockService {
     let res;
     let status;
     do {
-      res = await this.exsatService.requestExsat(
-        this.configService.get<string>('contract.account.blksync'),
-        'verify',
-        data,
-      );
-      status = res.response.processed.action_traces[0].return_value_data.status;
-      if (status === 'waiting_miner_verification') await sleep(6000);
+      try {
+        res = await this.exsatService.requestExsat(
+          this.configService.get<string>('contract.account.blksync'),
+          'verify',
+          data,
+        );
+        status =
+          res.response.processed.action_traces[0].return_value_data.status;
+        if (status === 'waiting_miner_verification') await sleep(6000);
+      } catch (e) {
+        if (
+          e.message.indexOf('parent block hash did not reach consensus') > -1
+        ) {
+          status = 'waiting_for_consensus';
+          this.logger.log(
+            `waiting for parent block[${height - 1}] reach consensus`,
+          );
+          await sleep(6000);
+        } else {
+          throw e;
+        }
+      }
     } while (
       [
         'verify_merkle',
         'verify_parent_hash',
         'waiting_miner_verification',
+        'waiting_for_consensus',
       ].includes(status)
     );
     if (
