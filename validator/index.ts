@@ -243,7 +243,7 @@ async function validatorWork() {
       }
       const blockcount = await getblockcount();
       for (let i = latestRewardHeight + 1; i <= blockcount.result; i++) {
-        const blockhash = await getblockhash(i + 800);
+        const blockhash = await getblockhash(i);
         logger.info(`Checking endorsement for block ${i}/${blockcount.result}`);
         await checkAndSubmitEndorsement(accountName, i, blockhash.result);
         await sleep(RETRY_INTERVAL_MS);
