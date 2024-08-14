@@ -44,7 +44,7 @@ export class Version {
   }
   static async pullLatestChanges(): Promise<void> {
     try {
-      await git.pull(); // Assuming 'main' is the branch you want to pull from
+      await git.pull('origin', 'master'); // Assuming 'main' is the branch you want to pull from
       console.log('Successfully pulled the latest changes.');
     } catch (error) {
       if (error.message.includes('CONFLICT')) {
