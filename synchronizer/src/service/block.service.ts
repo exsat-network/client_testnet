@@ -185,11 +185,11 @@ export class BlockService {
     }
     return res;
   }
-  async processblock(maxRetries = 5, initialProcessRows = 3000) {
+  async processblock(initialProcessRows = 3000) {
     let processRows = initialProcessRows;
+    let errorCount = 0;
     let retries = 0;
-
-    while (retries < maxRetries) {
+    while (processRows > 0) {
       try {
         const data = {
           synchronizer: this.configService.get<string>('exsat_account'),
@@ -206,20 +206,37 @@ export class BlockService {
           if (
             result.response.processed.action_traces[0].return_value_data
               .status !== 'parsing'
-          )
+          ) {
             finish = true;
+          }
+          processRows = processRows < 3000 ? processRows * 2 : processRows;
         }
         this.logger.log(
-          `processblock success, process ${processRows} rows (retry ${retries + 1}/${maxRetries})`,
+          `processblock success, process ${processRows} rows (retry ${retries + 1}})`,
         );
         break;
       } catch (error) {
         // If it fails, decrement processRows and prepare to try again
-        if (retries < maxRetries - 1) {
-          processRows = Math.max(0, processRows - 500); // Make sure processRows does not become negative
+        if (processRows > 0) {
+          if (
+            error.message.indexOf(
+              'reached node configured max-transaction-time 150000us',
+            ) > -1
+          ) {
+            processRows = Math.ceil(processRows / 2); // Make sure processRows does not become negative
+          } else {
+            errorCount++;
+            if (errorCount > 3) {
+              throw new Error(
+                `block process error,${this.configService.get<string>('exsat_account')}:${processRows},${error.message}`,
+                error,
+              );
+            }
+          }
+
           retries++;
           console.error(
-            `Request failed, retrying with ${processRows} rows (retry ${retries + 1}/${maxRetries})`,
+            `Request failed, retrying with ${processRows} rows (retry ${retries + 1}})`,
             error,
           );
           await sleep(200);
