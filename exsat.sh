@@ -91,12 +91,8 @@ else
 fi
 
 # Check if dependencies are installed
-if [ ! -d "node_modules" ]; then
-  echo "Dependencies not detected, installing..."
-  yarn install || { echo "Dependency installation failed"; exit 1; }
-else
-  echo "Dependencies are already installed."
-fi
+echo "Check Dependencies"
+yarn install || { echo "Dependency installation failed"; exit 1; }
 
 # Start the client script
 echo "Starting $client..."

@@ -154,7 +154,8 @@ export class BlockService {
         );
         status =
           res.response.processed.action_traces[0].return_value_data.status;
-        if (status === 'waiting_miner_verification') await sleep(6000);
+        if (status === 'waiting_miner_verification') await sleep(5000);
+        await sleep(10);
       } catch (e) {
         if (
           e.message.indexOf('parent block hash did not reach consensus') > -1
