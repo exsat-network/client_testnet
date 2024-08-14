@@ -90,7 +90,9 @@ async function main() {
   do {
     const versions = await Version.checkForUpdates('message');
     init = existKeystore(); // Suppose this function checks if Keystore exists
-    let mainMenu = init ? menus.mainWithKeystore : menus.mainWithoutKeystore;
+    let mainMenu = init
+      ? [...menus.mainWithKeystore]
+      : [...menus.mainWithoutKeystore];
     if (versions.new) {
       mainMenu = [
         {
