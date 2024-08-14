@@ -1,19 +1,20 @@
 {
   "compilerOptions": {
-    "target": "es2017",
+    "target": "es2022",
     "module": "commonjs",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "strict": true,
+    "strict": false,
     "skipLibCheck": true,
     "sourceMap": true,
     "strictNullChecks": false,
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
+    "removeComments": true,
     "outDir": "./dist"
   },
   "exclude": [
-    "node_modules"
+    "node_modules", "scripts", "dist"
   ]
 }
