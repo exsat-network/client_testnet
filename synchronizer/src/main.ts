@@ -130,13 +130,13 @@ async function checkClientMenu() {
   const versions = await Version.checkForUpdates('message');
   if (versions.new) {
     versionMessage =
-      '-------------------------------\n' +
+      '-----------------------------------------------\n' +
       `Client Current Version: ${versions.current}\n` +
       ColorUtils.colorize(
         `Client Latest  Version: ${versions.latest}`,
         ColorUtils.fgYellow,
       ) +
-      '\n-------------------------------\n';
+      '\n-----------------------------------------------\n';
     menus.unshift({
       name: `Upgrade Client ( From ${versions.current} to ${versions.latest})`,
       value: 'upgrade_client',
@@ -144,10 +144,10 @@ async function checkClientMenu() {
     });
   } else {
     versionMessage =
-      '-------------------------------\n' +
+      '-----------------------------------------------\n' +
       `Client Current Version: ${versions.current}\n` +
       `The Latest Version\n` +
-      '-------------------------------\n';
+      '-----------------------------------------------\n';
   }
   const actions: { [key: string]: () => Promise<any> } = {
     upgrade_client: async () => await Version.checkForUpdates('update'),
