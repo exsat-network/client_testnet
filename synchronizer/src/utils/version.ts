@@ -3,7 +3,7 @@ import * as path from 'path';
 import simpleGit from 'simple-git';
 import axios from 'axios';
 import process from 'node:process';
-const git = simpleGit();
+const git = simpleGit(path.resolve(process.cwd(), '../'));
 
 export class Version {
   private static gitConfigPath = path.join(process.cwd(), '../.git', 'config');

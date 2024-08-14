@@ -23,7 +23,7 @@ export class MyParse extends BaseJob {
       chainState.parsed_expiration_time > Date.now() ||
       this.configService.get('exsat_account') === currentAccount.toString()
     ) {
-      await this.blockService.processblock(5, 3000);
+      await this.blockService.processblock(6, 3000);
     }
   }
 }

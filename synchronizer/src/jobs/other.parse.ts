@@ -39,7 +39,7 @@ export class OtherParse extends BaseJob {
       this.logger.log(
         `parsing height：${chainState.parsing_height} synchronizer:${chainState.synchronizer} parser:${chainState.parser}`,
       );
-      await this.blockService.processblock(5, 3000);
+      await this.blockService.processblock(6, 3000);
     }
   }
 }
