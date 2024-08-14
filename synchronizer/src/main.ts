@@ -11,6 +11,8 @@ import {
 } from '@exsat/account-initializer';
 import { program } from 'commander';
 import { reloadEnv } from '~/utils/env';
+import { Version } from '~/utils/version';
+import { ColorUtils } from '~/utils/color';
 const commandOptions = program
   .option('--pwd <password>', 'Set password for keystore')
   .option('--pwdfile <password>', 'Set password for keystore')
@@ -19,11 +21,18 @@ const commandOptions = program
   .opts();
 export { commandOptions };
 async function main() {
+  if (commandOptions.pwd || commandOptions.pwdfile) {
+    reloadEnv();
+  }
   let init = existKeystore();
   if (init && commandOptions.run) {
     await bootstrap('launch_client');
     return;
   }
+  console.log(
+    '-------------------------------\nPlease note: It is highly recommended that you carefully read the user guide and follow the instructions precisely to avoid any unnecessary issues.\n' +
+      'User Guide: https://docs.exsat.network/user-guide-for-testnet-hayek\n-------------------------------',
+  );
   const rpcUrl = process.env.BTC_RPC_URL;
   const menus = {
     mainWithKeystore: [
@@ -73,17 +82,86 @@ async function main() {
     create_account: async () => await initializeAccount('Synchronizer'),
     import_seed_phrase: async () => await importFromMnemonic(),
     import_private_key: async () => await importFromPrivateKey(),
+    upgrade_client: async () => await Version.checkForUpdates('update'),
+    check_client_version: async () => await checkClientMenu(),
   };
 
   let action: string | undefined;
   do {
+    const versions = await Version.checkForUpdates('message');
     init = existKeystore(); // Suppose this function checks if Keystore exists
-    const mainMenu = init ? menus.mainWithKeystore : menus.mainWithoutKeystore;
+    let mainMenu = init
+      ? [...menus.mainWithKeystore]
+      : [...menus.mainWithoutKeystore];
+    if (versions.new) {
+      mainMenu = [
+        {
+          name: `Upgrade Client(From ${versions.current} to ${versions.latest})`,
+          value: 'upgrade_client',
+          description: 'Upgrade Client',
+        },
+        ...mainMenu,
+      ];
+    } else {
+      mainMenu.splice(4, 0, {
+        name: `Check Client Version`,
+        value: 'check_client_version',
+        description: 'Check Client Version',
+      });
+    }
+
     action = await select({ message: 'Select action', choices: mainMenu });
     if (action && actions[action]) {
       await actions[action]();
     }
   } while (!['launch_client', '99'].includes(action));
+}
+async function checkClientMenu() {
+  const menus = [
+    new Separator(),
+    {
+      name: 'Back to Main Menu',
+      value: '99',
+      description: 'Back to Main Menu',
+    },
+  ];
+  let versionMessage;
+  const versions = await Version.checkForUpdates('message');
+  if (versions.new) {
+    versionMessage =
+      '-----------------------------------------------\n' +
+      `Client Current Version: ${versions.current}\n` +
+      ColorUtils.colorize(
+        `Client Latest  Version: ${versions.latest}`,
+        ColorUtils.fgYellow,
+      ) +
+      '\n-----------------------------------------------\n';
+    menus.unshift({
+      name: `Upgrade Client ( From ${versions.current} to ${versions.latest})`,
+      value: 'upgrade_client',
+      description: 'Upgrade Client',
+    });
+  } else {
+    versionMessage =
+      '-----------------------------------------------\n' +
+      `Client Current Version: ${versions.current}\n` +
+      `The Latest Version\n` +
+      '-----------------------------------------------\n';
+  }
+  const actions: { [key: string]: () => Promise<any> } = {
+    upgrade_client: async () => await Version.checkForUpdates('update'),
+  };
+
+  let action;
+  do {
+    action = await select({
+      message: versionMessage,
+      choices: menus,
+    });
+    if (action !== '99') {
+      await (actions[action] || (() => {}))();
+    }
+  } while (action !== '99');
 }
 
 // Determine whether a file with the suffix _keystore.json exists in root_dir. If it exists, return true, otherwise return false.
