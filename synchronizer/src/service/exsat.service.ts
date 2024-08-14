@@ -149,6 +149,7 @@ export class ExsatService {
               upper_bound: params.to,
               limit: params.maxRows,
               key_type: params.key_type,
+              reverse: params.reverse,
               json: true,
             });
             allRows = allRows.concat(res.rows);
