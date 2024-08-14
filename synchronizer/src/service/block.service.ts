@@ -181,7 +181,7 @@ export class BlockService {
       'verify_fail'
     ) {
       await this.delBucket(fromAccount, height, blockHash);
-      throw new Error(`verifyBlock failed`);
+      throw new Error(`verifyBlock failed account:${height}`);
     }
     return res;
   }
