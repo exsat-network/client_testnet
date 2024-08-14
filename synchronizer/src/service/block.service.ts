@@ -152,7 +152,7 @@ export class BlockService {
         data,
       );
       status = res.response.processed.action_traces[0].return_value_data.status;
-      if (status === 'waiting_miner_verification') await sleep(6000);
+      if (status === 'waiting_miner_verification') await sleep(5000);
     } while (
       [
         'verify_merkle',
