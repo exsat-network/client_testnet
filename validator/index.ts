@@ -199,7 +199,7 @@ async function validatorWork() {
     logger.error(`Unvailable account:${accountName}`);
     return;
   }
-  logger.info('Validator client configurations are correct, and the startup was successful.')
+  logger.info('Validator client configurations are correct, and the startup was successful.');
 
   cron.schedule(JOBS_ENDORSE, async () => {
     if (!await checkStartupStatus()) {

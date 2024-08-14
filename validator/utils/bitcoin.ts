@@ -1,17 +1,17 @@
 import axios from 'axios';
 
 async function sendBtcRpcRequest(data: object): Promise<any> {
-  let rpcAuth  = ''
-  if(process.env.BTC_RPC_USERNAME && process.env.BTC_RPC_PASSWORD){
-    rpcAuth= Buffer.from(
-        `${process.env.BTC_RPC_USERNAME}:${process.env.BTC_RPC_PASSWORD}`,
+  let rpcAuth = '';
+  if (process.env.BTC_RPC_USERNAME && process.env.BTC_RPC_PASSWORD) {
+    rpcAuth = Buffer.from(
+      `${process.env.BTC_RPC_USERNAME}:${process.env.BTC_RPC_PASSWORD}`,
     ).toString('base64');
   }
   const headers = {
     'Content-Type': 'text/plain',
-    'Authorization': rpcAuth?`Basic ${rpcAuth}`:''
+    'Authorization': rpcAuth ? `Basic ${rpcAuth}` : ''
   };
-  const response = await axios.post(process.env.BTC_RPC_URL, data, {headers});
+  const response = await axios.post(process.env.BTC_RPC_URL, data, { headers });
   return response.data;
 }
 
@@ -41,7 +41,7 @@ export async function getLatestBlockInfo() {
   return {
     height: blockcountRes.result,
     hash: blockhashRes.result
-  }
+  };
 }
 
 export async function getblockheader(blockhash: string): Promise<any> {

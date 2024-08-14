@@ -4,7 +4,7 @@ import DailyRotateFile from 'winston-daily-rotate-file';
 // winston.format.json(),
 const customFormat = winston.format.combine(
   winston.format.timestamp({
-    format: 'YYYY-MM-DD HH:mm:ss'
+    format: 'YYYY-MM-DDThh:mm:ssZ'
   }),
   winston.format.printf(info => `${info.timestamp} ${info.level}: ${info.message}`)
 );
