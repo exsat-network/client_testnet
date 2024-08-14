@@ -101,14 +101,11 @@ async function main() {
         ...mainMenu,
       ];
     } else {
-      mainMenu = [
-        ...mainMenu,
-        {
-          name: `Check Client Version`,
-          value: 'check_client_version',
-          description: 'Check Client Version',
-        },
-      ];
+      mainMenu.splice(4, 0, {
+        name: `Check Client Version`,
+        value: 'check_client_version',
+        description: 'Check Client Version',
+      });
     }
 
     action = await select({ message: 'Select action', choices: mainMenu });
