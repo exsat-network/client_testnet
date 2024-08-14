@@ -63,10 +63,11 @@ export class BlockUpload extends BaseJob {
     //Recursively obtain the upload link through EXSAT contract (table data)
     this.logger.log('Get the best upload block');
     let uploadBlock;
-    while ((uploadBlock = await this.getUploadPosition())) {
+    let tries = 0;
+    while ((uploadBlock = await this.getUploadPosition()) && tries < 5) {
       try {
         this.logger.log(
-          `will Upload block:${uploadBlock.height} ${uploadBlock.hash}`,
+          `will upload block:${uploadBlock.height} ${uploadBlock.hash}`,
         );
         const blockData = await this.btcService.getBlockRawByHash(
           uploadBlock.hash,
@@ -108,12 +109,16 @@ export class BlockUpload extends BaseJob {
           );
         }
       } catch (error) {
+        tries++;
         await this.blockService.delBucket(
           this.configService.get<string>('exsat_account'),
           uploadBlock.height,
           uploadBlock.hash,
         );
-        this.logger.error(error);
+        this.logger.error(
+          `height:${uploadBlock.height} hash:${uploadBlock.hash} \n ${error.message}`,
+          error,
+        );
       }
       await sleep(1000);
     }
