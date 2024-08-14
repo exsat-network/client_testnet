@@ -189,17 +189,21 @@ async function validatorWork() {
   try {
     const res = await getClientStatus(accountName);
     const result = res.response.processed.action_traces[0].return_value_data;
-    if (!result.has_auth || !result.is_exists) {
-      logger.error(`Unvailable account:${accountName}`);
+    if (!result.has_auth) {
+      logger.error(`The account[${accountName}] permissions do not match. Please check if the keystore file[${process.env.KEYSTORE_FILE}] has been imported correctly.`);
+      return;
+    }
+    if (!result.is_exists) {
+      logger.error(`The account[${accountName}] has not been registered as a validator. Please contact the administrator for verification.`);
       return;
     }
     const balance = parseCurrency(result.balance);
-    if (balance.amount < 0.0001) {
-      logger.error('Insufficient balance');
+    if (balance && balance.amount < 0.0001) {
+      logger.error(`The account[${accountName}] gas fee balance[${result.balance}] is insufficient. Please recharge through the menu.`);
       return;
     }
   } catch (e) {
-    logger.error(`Unvailable account:${accountName}`);
+    logger.error(`Validator client configurations are incorrect, and the startup failed.`, e);
     return;
   }
   logger.info('Validator client configurations are correct, and the startup was successful.');
@@ -211,7 +215,7 @@ async function validatorWork() {
     }
     try {
       if (endorseRunning) {
-        logger.info('Endorse task is already running. Skipping this round.');
+        // logger.info('Endorse task is already running. Skipping this round.');
         return;
       }
       endorseRunning = true;
