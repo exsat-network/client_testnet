@@ -44,7 +44,8 @@ export class Version {
   }
   static async pullLatestChanges(): Promise<void> {
     try {
-      await git.pull('origin', 'master'); // Assuming 'main' is the branch you want to pull from
+      await git.fetch(['-p']); // Assuming 'main' is the branch you want to pull from
+      await git.checkout('.')
       console.log('Successfully pulled the latest changes.');
     } catch (error) {
       if (error.message.includes('CONFLICT')) {
@@ -60,6 +61,7 @@ export class Version {
   static async checkoutTag(tag: string): Promise<void> {
     try {
       await git.checkout(tag);
+      await git.pull(); // Assuming 'main' is the branch you want to pull from
       console.log(`Successfully checked out to tag ${tag}.`);
     } catch (error) {
       console.error(`Error checking out to tag ${tag}:`, error);
@@ -88,7 +90,6 @@ export class Version {
 
     if (latestVersion !== localVersion) {
       if (action === 'update') {
-        await this.checkoutTag('.');
         await this.pullLatestChanges();
         await this.checkoutTag(latestVersion);
       }
