@@ -209,7 +209,7 @@ export class BlockService {
           ) {
             finish = true;
           }
-          processRows = processRows < 3000 ? processRows * 2 : processRows;
+          processRows = initialProcessRows;
         }
         this.logger.log(
           `processblock success, process ${processRows} rows (retry ${retries + 1}})`,
@@ -235,7 +235,7 @@ export class BlockService {
           }
 
           retries++;
-          console.error(
+          this.logger.error(
             `Request failed, retrying with ${processRows} rows (retry ${retries + 1}})`,
             error,
           );
