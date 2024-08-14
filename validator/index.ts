@@ -81,7 +81,6 @@ async function checkKeystoreAndParse() {
 
 async function decryptKeystoreWithPassword(password: string) {
   const keystore = readFileSync(encFile, 'utf-8');
-
   const keystoreInfo = JSON.parse(keystore);
   const accountName = keystoreInfo.username.endsWith('.sat') ? keystoreInfo.username : `${keystoreInfo.username}.sat`;
   const data = await decryptKeystore(keystore, password);
@@ -93,9 +92,9 @@ async function decryptKeystoreWithPassword(password: string) {
 async function submitEndorsement(validator: string, height: number, hash: string) {
   try {
     const result = await exsat.transact('blkendt.xsat', 'endorse', { validator, height, hash });
-    logger.info(`Transaction was successfully broadcast! accountName: ${validator}, height: ${height}, hash: ${hash}, transaction_id: ${result.response!.transaction_id}`);
+    logger.info(`submit endorsement success, accountName: ${validator}, height: ${height}, hash: ${hash}, transaction_id: ${result.response!.transaction_id}`);
   } catch (error) {
-    logger.error(`submit endorsement error, accountName: ${validator}, height: ${height}, hash: ${hash}`, error);
+    logger.error(`submit endorsement failed, accountName: ${validator}, height: ${height}, hash: ${hash}`, error);
   }
 }
 
@@ -108,7 +107,9 @@ async function checkExsatInstance() {
 }
 
 async function setValidatorConfig() {
-  if (!accountInfo) await checkKeystoreAndParse();
+  if (!accountInfo) {
+    await checkKeystoreAndParse();
+  }
 
   const accountName = accountInfo.accountName;
   let commissionRate = await input({
@@ -151,7 +152,7 @@ async function setValidatorConfig() {
       commission_rate: commissionRate,
       financial_account: financialAccount
     });
-    logger.info(`Transaction was successfully broadcast! accountName: ${accountName}, commission_rate: ${commissionRate}, financial_account: ${financialAccount}, transaction_id: ${result.response!.transaction_id}`);
+    logger.info(`set config success, accountName: ${accountName}, commission_rate: ${commissionRate}, financial_account: ${financialAccount}, transaction_id: ${result.response!.transaction_id}`);
   } catch (error) {
     logger.error(`set config error, accountName: ${accountName}, commission_rate: ${commissionRate}, financial_account: ${financialAccount}`, error);
   }
@@ -179,7 +180,9 @@ async function checkStartupStatus() {
 }
 
 async function validatorWork() {
-  if (!accountInfo) await checkKeystoreAndParse();
+  if (!accountInfo) {
+    await checkKeystoreAndParse();
+  }
 
   await checkAndSetBtcRpcUrl();
   const accountName = accountInfo.accountName;
@@ -497,8 +500,7 @@ async function manageAccount() {
   const accountName = accountInfo.accountName;
   const btcBalance = await exsat.getBalance(accountName);
   const checkAccountInfo = await checkUsernameWithBackend(accountName);
-  const validator =
-    await exsat.getValidatorByAccount(accountName);
+  const validator = await exsat.getValidatorByAccount(accountName);
   let manageMessage = `-----------------------------------------------
    Account: ${accountName}
    Public Key: ${accountInfo.address}
