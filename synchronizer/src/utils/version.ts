@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import simpleGit from 'simple-git';
 import axios from 'axios';
-import { ColorUtils } from '~/utils/color';
+import process from 'node:process';
 const git = simpleGit();
 
 export class Version {
@@ -76,7 +76,7 @@ export class Version {
   }
 
   // Check if the code needs to be updated
-  static async checkForUpdates(): Promise<string | boolean> {
+  static async checkForUpdates(action?) {
     const [latestVersion, localVersion] = await Promise.all([
       this.getLatestVersion(),
       this.getLocalVersion(),
@@ -87,19 +87,14 @@ export class Version {
     }
 
     if (latestVersion !== localVersion) {
-      console.log(`Current Version: ${localVersion}`);
-      console.log(
-        ColorUtils.colorize(
-          `Latest  Version: ${latestVersion}`,
-          ColorUtils.fgYellow,
-        ),
-      );
-      await this.pullLatestChanges();
-      await this.checkoutTag(latestVersion);
-      return true;
+      if (action === 'update') {
+        await this.checkoutTag('.');
+        await this.pullLatestChanges();
+        await this.checkoutTag(latestVersion);
+      }
+      return { latest: latestVersion, current: localVersion, new: true };
     } else {
-      console.log(`Current Version: ${localVersion}\nThe latest version`);
-      return false;
+      return { latest: latestVersion, current: localVersion, new: false };
     }
   }
 }
