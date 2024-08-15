@@ -86,7 +86,7 @@ async function decryptKeystoreWithPassword(password: string) {
   const keystoreInfo = JSON.parse(keystore);
   const accountName = keystoreInfo.username.endsWith('.sat') ? keystoreInfo.username : `${keystoreInfo.username}.sat`;
   const data = await decryptKeystore(keystore, password);
-  // accountInfo = { ...keystoreInfo, privateKey: data, accountName };
+  accountInfo = { ...keystoreInfo, privateKey: data, accountName };
   await checkExsatInstance();
   return { account: accountName, privateKey: data };
 }
