@@ -28,8 +28,8 @@ import * as dotenv from 'dotenv';
 import process from 'process';
 import { program } from 'commander';
 import { JOBS_ENDORSE, JOBS_ENDORSE_CHECK, RETRY_INTERVAL_MS } from './utils/constants';
-import {Version} from "./utils/version";
-import {ColorUtils} from "./utils/color";
+import { Version } from './utils/version';
+import { ColorUtils } from './utils/color';
 
 const commandOptions = program
   .option('--pwd <password>', 'Set password for keystore')
@@ -74,7 +74,7 @@ async function checkKeystoreAndParse() {
         return decryptKeystoreWithPassword(passwordInput);
       }, 5);
     } catch (error) {
-      console.log('Error:Invaild Password');
+      console.log('Error: Invaild Password');
       process.exit();
     }
   }
@@ -86,7 +86,7 @@ async function decryptKeystoreWithPassword(password: string) {
   const keystoreInfo = JSON.parse(keystore);
   const accountName = keystoreInfo.username.endsWith('.sat') ? keystoreInfo.username : `${keystoreInfo.username}.sat`;
   const data = await decryptKeystore(keystore, password);
-  accountInfo = { ...keystoreInfo, privateKey: data, accountName };
+  // accountInfo = { ...keystoreInfo, privateKey: data, accountName };
   await checkExsatInstance();
   return { account: accountName, privateKey: data };
 }
@@ -94,9 +94,9 @@ async function decryptKeystoreWithPassword(password: string) {
 async function submitEndorsement(validator: string, height: number, hash: string) {
   try {
     const result = await exsat.transact('blkendt.xsat', 'endorse', { validator, height, hash });
-    logger.info(`submit endorsement success, accountName: ${validator}, height: ${height}, hash: ${hash}, transaction_id: ${result.response!.transaction_id}`);
+    logger.info(`Submit endorsement success, accountName: ${validator}, height: ${height}, hash: ${hash}, transaction_id: ${result.response!.transaction_id}`);
   } catch (error) {
-    logger.error(`submit endorsement failed, accountName: ${validator}, height: ${height}, hash: ${hash}`, error);
+    logger.error(`Submit endorsement failed, accountName: ${validator}, height: ${height}, hash: ${hash}`, error);
   }
 }
 
@@ -105,7 +105,6 @@ async function checkExsatInstance() {
     exsat = new Exsat();
     await exsat.init(accountInfo.privateKey, accountInfo.accountName);
   }
-
 }
 
 async function setValidatorConfig() {
@@ -154,9 +153,9 @@ async function setValidatorConfig() {
       commission_rate: commissionRate,
       financial_account: financialAccount
     });
-    logger.info(`set config success, accountName: ${accountName}, commission_rate: ${commissionRate}, financial_account: ${financialAccount}, transaction_id: ${result.response!.transaction_id}`);
+    logger.info(`Set config success, accountName: ${accountName}, commission_rate: ${commissionRate}, financial_account: ${financialAccount}, transaction_id: ${result.response!.transaction_id}`);
   } catch (error) {
-    logger.error(`set config error, accountName: ${accountName}, commission_rate: ${commissionRate}, financial_account: ${financialAccount}`, error);
+    logger.error(`Set config error, accountName: ${accountName}, commission_rate: ${commissionRate}, financial_account: ${financialAccount}`, error);
   }
 }
 
@@ -217,7 +216,7 @@ async function validatorWork() {
     }
     try {
       if (endorseRunning) {
-        // logger.info('Endorse task is already running. Skipping this round.');
+        logger.info('Endorse task is already running. Skipping this round.');
         return;
       }
       endorseRunning = true;
@@ -233,13 +232,11 @@ async function validatorWork() {
     }
   });
 
-
   cron.schedule(JOBS_ENDORSE_CHECK, async () => {
     if (!await checkStartupStatus()) {
       return;
     }
     if (endorseCheckRunning) {
-      logger.info('Endorse check task is already running. Skipping this round.');
       return;
     }
     endorseCheckRunning = true;
@@ -255,10 +252,10 @@ async function validatorWork() {
         const blockhash = await getblockhash(i);
         logger.info(`Checking endorsement for block ${i}/${blockcount.result}`);
         await checkAndSubmitEndorsement(accountName, i, blockhash.result);
-        await sleep(RETRY_INTERVAL_MS);
+        // await sleep(RETRY_INTERVAL_MS);
       }
     } catch (e) {
-      console.error('Endorse check task error', e);
+      logger.error('Endorse check task error', e);
       await sleep(RETRY_INTERVAL_MS);
     } finally {
       endorseCheckRunning = false;
@@ -435,8 +432,8 @@ async function main() {
     return;
   }
   console.log(
-      '-------------------------------\nPlease note: It is highly recommended that you carefully read the user guide and follow the instructions precisely to avoid any unnecessary issues.\n' +
-      'User Guide: https://docs.exsat.network/user-guide-for-testnet-hayek\n-------------------------------',
+    '-------------------------------\nPlease note: It is highly recommended that you carefully read the user guide and follow the instructions precisely to avoid any unnecessary issues.\n' +
+    'User Guide: https://docs.exsat.network/user-guide-for-testnet-hayek\n-------------------------------',
   );
   const menus = {
     mainWithKeystore: [
@@ -496,7 +493,7 @@ async function main() {
     init = existKeystore(); // Suppose this function checks if Keystore exists
     const versions = await Version.checkForUpdates('message');
 
-    let mainMenu = init ?[...menus.mainWithKeystore] : [...menus.mainWithoutKeystore];
+    let mainMenu = init ? [...menus.mainWithKeystore] : [...menus.mainWithoutKeystore];
     if (versions.new) {
       mainMenu = [
         {
@@ -652,6 +649,7 @@ async function manageAccount() {
     }
   } while (action !== '99');
 }
+
 async function checkClientMenu() {
   const menus = [
     new Separator(),
@@ -665,13 +663,13 @@ async function checkClientMenu() {
   const versions = await Version.checkForUpdates('message');
   if (versions.new) {
     versionMessage =
-        '-----------------------------------------------\n' +
-        `Client Current Version: ${versions.current}\n` +
-        ColorUtils.colorize(
-            `Client Latest  Version: ${versions.latest}`,
-            ColorUtils.fgYellow,
-        ) +
-        '\n-----------------------------------------------\n';
+      '-----------------------------------------------\n' +
+      `Client Current Version: ${versions.current}\n` +
+      ColorUtils.colorize(
+        `Client Latest  Version: ${versions.latest}`,
+        ColorUtils.fgYellow,
+      ) +
+      '\n-----------------------------------------------\n';
     menus.unshift({
       name: `Upgrade Client ( From ${versions.current} to ${versions.latest})`,
       value: 'upgrade_client',
@@ -679,10 +677,10 @@ async function checkClientMenu() {
     });
   } else {
     versionMessage =
-        '-----------------------------------------------\n' +
-        `Client Current Version: ${versions.current}\n` +
-        `The Latest Version\n` +
-        '-----------------------------------------------\n';
+      '-----------------------------------------------\n' +
+      `Client Current Version: ${versions.current}\n` +
+      `The Latest Version\n` +
+      '-----------------------------------------------\n';
   }
   const actions: { [key: string]: () => Promise<any> } = {
     upgrade_client: async () => await Version.checkForUpdates('update'),
@@ -695,10 +693,12 @@ async function checkClientMenu() {
       choices: menus,
     });
     if (action !== '99') {
-      await (actions[action] || (() => {}))();
+      await (actions[action] || (() => {
+      }))();
     }
   } while (action !== '99');
 }
+
 main().then(() => {
 }).catch((e) => {
   logger.error(e);
