@@ -29,7 +29,7 @@ import process from 'process';
 import { program } from 'commander';
 import { JOBS_ENDORSE, JOBS_ENDORSE_CHECK, RETRY_INTERVAL_MS } from './utils/constants';
 import {Version} from "./utils/version";
-import {ColorUtils} from "./utils/color";
+import {Font} from "./utils/font";
 
 const commandOptions = program
   .option('--pwd <password>', 'Set password for keystore')
@@ -42,7 +42,6 @@ let exsat: Exsat;
 let accountInfo: any;
 let encFile;
 let [endorseRunning, endorseCheckRunning] = [false, false];
-
 let startupStatus = false;
 
 
@@ -78,7 +77,6 @@ async function checkKeystoreAndParse() {
       process.exit();
     }
   }
-
 }
 
 async function decryptKeystoreWithPassword(password: string) {
@@ -428,8 +426,10 @@ async function main() {
     return;
   }
   console.log(
-      '-------------------------------\nPlease note: It is highly recommended that you carefully read the user guide and follow the instructions precisely to avoid any unnecessary issues.\n' +
-      'User Guide: https://docs.exsat.network/user-guide-for-testnet-hayek\n-------------------------------',
+      '-------------------------------\n'+
+      'Please note: It is highly recommended that you carefully read the user guide and follow the instructions precisely to avoid any unnecessary issues.\n' +
+      'User Guide: https://docs.exsat.network/user-guide-for-testnet-hayek\n' +
+      '-------------------------------',
   );
   const menus = {
     mainWithKeystore: [
@@ -661,9 +661,9 @@ async function checkClientMenu() {
     versionMessage =
         '-----------------------------------------------\n' +
         `Client Current Version: ${versions.current}\n` +
-        ColorUtils.colorize(
+        Font.colorize(
             `Client Latest  Version: ${versions.latest}`,
-            ColorUtils.fgYellow,
+            Font.fgYellow,
         ) +
         '\n-----------------------------------------------\n';
     menus.unshift({

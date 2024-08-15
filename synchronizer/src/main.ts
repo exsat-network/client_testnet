@@ -12,7 +12,7 @@ import {
 import { program } from 'commander';
 import { reloadEnv } from '~/utils/env';
 import { Version } from '~/utils/version';
-import { ColorUtils } from '~/utils/color';
+import { Font } from '~/utils/font';
 const commandOptions = program
   .option('--pwd <password>', 'Set password for keystore')
   .option('--pwdfile <password>', 'Set password for keystore')
@@ -30,8 +30,10 @@ async function main() {
     return;
   }
   console.log(
-    '-------------------------------\nPlease note: It is highly recommended that you carefully read the user guide and follow the instructions precisely to avoid any unnecessary issues.\n' +
-      'User Guide: https://docs.exsat.network/user-guide-for-testnet-hayek\n-------------------------------',
+    `-------------------------------
+${Font.fgYellow}Please note: It is highly recommended that you carefully read the user guide and follow the instructions precisely to avoid any unnecessary issues.
+User Guide: https://docs.exsat.network/user-guide-for-testnet-hayek${Font.reset}
+-------------------------------`,
   );
   const rpcUrl = process.env.BTC_RPC_URL;
   const menus = {
@@ -131,9 +133,9 @@ async function checkClientMenu() {
     versionMessage =
       '-----------------------------------------------\n' +
       `Client Current Version: ${versions.current}\n` +
-      ColorUtils.colorize(
+      Font.colorize(
         `Client Latest  Version: ${versions.latest}`,
-        ColorUtils.fgYellow,
+        Font.fgYellow,
       ) +
       '\n-----------------------------------------------\n';
     menus.unshift({
@@ -154,6 +156,7 @@ async function checkClientMenu() {
 
   let action;
   do {
+    console.log();
     action = await select({
       message: versionMessage,
       choices: menus,

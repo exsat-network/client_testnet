@@ -1,4 +1,4 @@
-export class ColorUtils {
+export class Font {
   static reset = '\x1b[0m';
   static bright = '\x1b[1m';
   static dim = '\x1b[2m';
