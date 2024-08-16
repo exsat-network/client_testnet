@@ -11,7 +11,7 @@ export abstract class BaseJob {
     try {
       await this.handle();
     } catch (e) {
-      this.logger.log(e.stack);
+      this.logger.log(e.message, e.stack);
     }
 
     this.taskOn = false;
