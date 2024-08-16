@@ -186,17 +186,24 @@ async function validatorWork() {
   try {
     const res = await getClientStatus(accountName);
     const result = res.response.processed.action_traces[0].return_value_data;
-    if (!result.has_auth || !result.is_exists) {
-      logger.error(`Unvailable account:${accountName}`);
-      return;
+    if (!result.has_auth) {
+      throw new Error(
+          `The account[${accountName}] permissions do not match. Please check if the keystore file[${process.env.KEYSTORE_FILE}] has been imported correctly. `,
+      );
+    }
+    if (!result.is_exists) {
+      throw new Error(
+          `The account[${accountName}] has not been registered as a synchronizer. Please contact the administrator for verification.`,
+      );
     }
     const balance = parseCurrency(result.balance);
     if (balance.amount < 0.0001) {
-      logger.error('Insufficient balance');
-      return;
+      throw new Error(
+          'The gas fee balance is insufficient. Please recharge through the menu.',
+      );
     }
   } catch (e) {
-    logger.error(`Unvailable account:${accountName}`);
+    logger.error(e.message,e);
     return;
   }
   logger.info('Validator client configurations are correct, and the startup was successful.')
