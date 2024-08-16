@@ -73,7 +73,7 @@ async function checkKeystoreAndParse() {
         return decryptKeystoreWithPassword(passwordInput);
       }, 5);
     } catch (error) {
-      console.log('Error:Invaild Password');
+      console.log('Error: Invaild Password');
       process.exit();
     }
   }
@@ -81,7 +81,6 @@ async function checkKeystoreAndParse() {
 
 async function decryptKeystoreWithPassword(password: string) {
   const keystore = readFileSync(encFile, 'utf-8');
-
   const keystoreInfo = JSON.parse(keystore);
   const accountName = keystoreInfo.username.endsWith('.sat') ? keystoreInfo.username : `${keystoreInfo.username}.sat`;
   const data = await decryptKeystore(keystore, password);
@@ -93,9 +92,9 @@ async function decryptKeystoreWithPassword(password: string) {
 async function submitEndorsement(validator: string, height: number, hash: string) {
   try {
     const result = await exsat.transact('blkendt.xsat', 'endorse', { validator, height, hash });
-    logger.info(`Transaction was successfully broadcast! accountName: ${validator}, height: ${height}, hash: ${hash}, transaction_id: ${result.response!.transaction_id}`);
+    logger.info(`Submit endorsement success, accountName: ${validator}, height: ${height}, hash: ${hash}, transaction_id: ${result.response!.transaction_id}`);
   } catch (error) {
-    logger.error(`submit endorsement error, accountName: ${validator}, height: ${height}, hash: ${hash}`, error);
+    logger.error(`Submit endorsement failed, accountName: ${validator}, height: ${height}, hash: ${hash}`, error);
   }
 }
 
@@ -104,11 +103,12 @@ async function checkExsatInstance() {
     exsat = new Exsat();
     await exsat.init(accountInfo.privateKey, accountInfo.accountName);
   }
-
 }
 
 async function setValidatorConfig() {
-  if (!accountInfo) await checkKeystoreAndParse();
+  if (!accountInfo) {
+    await checkKeystoreAndParse();
+  }
 
   const accountName = accountInfo.accountName;
   let commissionRate = await input({
@@ -151,9 +151,9 @@ async function setValidatorConfig() {
       commission_rate: commissionRate,
       financial_account: financialAccount
     });
-    logger.info(`Transaction was successfully broadcast! accountName: ${accountName}, commission_rate: ${commissionRate}, financial_account: ${financialAccount}, transaction_id: ${result.response!.transaction_id}`);
+    logger.info(`Set config success, accountName: ${accountName}, commission_rate: ${commissionRate}, financial_account: ${financialAccount}, transaction_id: ${result.response!.transaction_id}`);
   } catch (error) {
-    logger.error(`set config error, accountName: ${accountName}, commission_rate: ${commissionRate}, financial_account: ${financialAccount}`, error);
+    logger.error(`Set config error, accountName: ${accountName}, commission_rate: ${commissionRate}, financial_account: ${financialAccount}`, error);
   }
 }
 
@@ -179,7 +179,9 @@ async function checkStartupStatus() {
 }
 
 async function validatorWork() {
-  if (!accountInfo) await checkKeystoreAndParse();
+  if (!accountInfo) {
+    await checkKeystoreAndParse();
+  }
 
   await checkAndSetBtcRpcUrl();
   const accountName = accountInfo.accountName;
@@ -187,26 +189,23 @@ async function validatorWork() {
     const res = await getClientStatus(accountName);
     const result = res.response.processed.action_traces[0].return_value_data;
     if (!result.has_auth) {
-      throw new Error(
-          `The account[${accountName}] permissions do not match. Please check if the keystore file[${process.env.KEYSTORE_FILE}] has been imported correctly. `,
-      );
+      logger.error(`The account[${accountName}] permissions do not match. Please check if the keystore file[${process.env.KEYSTORE_FILE}] has been imported correctly.`);
+      return;
     }
     if (!result.is_exists) {
-      throw new Error(
-          `The account[${accountName}] has not been registered as a synchronizer. Please contact the administrator for verification.`,
-      );
+      logger.error(`The account[${accountName}] has not been registered as a validator. Please contact the administrator for verification.`);
+      return;
     }
     const balance = parseCurrency(result.balance);
-    if (balance.amount < 0.0001) {
-      throw new Error(
-          'The gas fee balance is insufficient. Please recharge through the menu.',
-      );
+    if (balance && balance.amount < 0.0001) {
+      logger.error(`The account[${accountName}] gas fee balance[${result.balance}] is insufficient. Please recharge through the menu.`);
+      return;
     }
   } catch (e) {
-    logger.error(e.message,e);
+    logger.error(`Validator client configurations are incorrect, and the startup failed.`, e);
     return;
   }
-  logger.info('Validator client configurations are correct, and the startup was successful.')
+  logger.info('Validator client configurations are correct, and the startup was successful.');
 
   cron.schedule(JOBS_ENDORSE, async () => {
     if (!await checkStartupStatus()) {
@@ -231,13 +230,11 @@ async function validatorWork() {
     }
   });
 
-
   cron.schedule(JOBS_ENDORSE_CHECK, async () => {
     if (!await checkStartupStatus()) {
       return;
     }
     if (endorseCheckRunning) {
-      logger.info('Endorse check task is already running. Skipping this round.');
       return;
     }
     endorseCheckRunning = true;
@@ -253,10 +250,10 @@ async function validatorWork() {
         const blockhash = await getblockhash(i);
         logger.info(`Checking endorsement for block ${i}/${blockcount.result}`);
         await checkAndSubmitEndorsement(accountName, i, blockhash.result);
-        await sleep(RETRY_INTERVAL_MS);
+        // await sleep(RETRY_INTERVAL_MS);
       }
     } catch (e) {
-      console.error('Endorse check task error', e);
+      logger.error('Endorse check task error', e);
       await sleep(RETRY_INTERVAL_MS);
     } finally {
       endorseCheckRunning = false;
@@ -496,7 +493,7 @@ async function main() {
     init = existKeystore(); // Suppose this function checks if Keystore exists
     const versions = await Version.checkForUpdates('message');
 
-    let mainMenu = init ?[...menus.mainWithKeystore] : [...menus.mainWithoutKeystore];
+    let mainMenu = init ? [...menus.mainWithKeystore] : [...menus.mainWithoutKeystore];
     if (versions.new) {
       mainMenu = [
         {
@@ -528,8 +525,7 @@ async function manageAccount() {
   const accountName = accountInfo.accountName;
   const btcBalance = await exsat.getBalance(accountName);
   const checkAccountInfo = await checkUsernameWithBackend(accountName);
-  const validator =
-    await exsat.getValidatorByAccount(accountName);
+  const validator = await exsat.getValidatorByAccount(accountName);
   let manageMessage = `-----------------------------------------------
    Account: ${accountName}
    Public Key: ${accountInfo.address}
@@ -653,6 +649,7 @@ async function manageAccount() {
     }
   } while (action !== '99');
 }
+
 async function checkClientMenu() {
   const menus = [
     new Separator(),
@@ -680,10 +677,10 @@ async function checkClientMenu() {
     });
   } else {
     versionMessage =
-        '-----------------------------------------------\n' +
-        `Client Current Version: ${versions.current}\n` +
-        `The Latest Version\n` +
-        '-----------------------------------------------\n';
+      '-----------------------------------------------\n' +
+      `Client Current Version: ${versions.current}\n` +
+      `The Latest Version\n` +
+      '-----------------------------------------------\n';
   }
   const actions: { [key: string]: () => Promise<any> } = {
     upgrade_client: async () => await Version.checkForUpdates('update'),
@@ -696,10 +693,12 @@ async function checkClientMenu() {
       choices: menus,
     });
     if (action !== '99') {
-      await (actions[action] || (() => {}))();
+      await (actions[action] || (() => {
+      }))();
     }
   } while (action !== '99');
 }
+
 main().then(() => {
 }).catch((e) => {
   logger.error(e);
