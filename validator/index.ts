@@ -3,7 +3,7 @@ import { getblockcount, getblockhash } from './utils/bitcoin';
 import { Exsat } from './utils/exsat';
 import { logger } from './utils/logger';
 import {
-  inputWithCancel,
+  inputWithCancel, isDocker,
   isEndorserQualified,
   parseCurrency,
   reloadEnv,
@@ -491,24 +491,26 @@ async function main() {
   let action: string | undefined;
   do {
     init = existKeystore(); // Suppose this function checks if Keystore exists
-    const versions = await Version.checkForUpdates('message');
-
     let mainMenu = init ? [...menus.mainWithKeystore] : [...menus.mainWithoutKeystore];
-    if (versions.new) {
-      mainMenu = [
-        {
-          name: `Upgrade Client(From ${versions.current} to ${versions.latest})`,
-          value: 'upgrade_client',
-          description: 'Upgrade Client',
-        },
-        ...mainMenu,
-      ];
-    } else {
-      mainMenu.splice(4, 0, {
-        name: `Check Client Version`,
-        value: 'check_client_version',
-        description: 'Check Client Version',
-      });
+    let versions;
+    if (!isDocker()) {
+      const versions = await Version.checkForUpdates('message');
+      if (versions.new) {
+        mainMenu = [
+          {
+            name: `Upgrade Client(From ${versions.current} to ${versions.latest})`,
+            value: 'upgrade_client',
+            description: 'Upgrade Client',
+          },
+          ...mainMenu,
+        ];
+      } else {
+        mainMenu.splice(4, 0, {
+          name: `Check Client Version`,
+          value: 'check_client_version',
+          description: 'Check Client Version',
+        });
+      }
     }
     action = await select({ message: 'Select action', choices: mainMenu });
     if (action && actions[action]) {
@@ -660,7 +662,13 @@ async function checkClientMenu() {
     },
   ];
   let versionMessage;
-  const versions = await Version.checkForUpdates('message');
+  let versions;
+  if(isDocker()){
+    versions = {new:false};
+  }else{
+    versions = await Version.checkForUpdates('message');
+  }
+
   if (versions.new) {
     versionMessage =
       '-----------------------------------------------\n' +
@@ -701,7 +709,7 @@ async function checkClientMenu() {
 
 main().then(() => {
 }).catch((e) => {
-  logger.error(e);
+  logger.error(e.message,e.stack);
 });
 
 

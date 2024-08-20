@@ -10,7 +10,7 @@ import {
   initializeAccount,
 } from '@exsat/account-initializer';
 import { program } from 'commander';
-import { reloadEnv } from '~/utils/env';
+import { isDocker, reloadEnv } from '~/utils/env';
 import { Version } from '~/utils/version';
 import { ColorUtils } from '~/utils/color';
 const commandOptions = program
@@ -88,26 +88,29 @@ async function main() {
 
   let action: string | undefined;
   do {
-    const versions = await Version.checkForUpdates('message');
     init = existKeystore(); // Suppose this function checks if Keystore exists
     let mainMenu = init
       ? [...menus.mainWithKeystore]
       : [...menus.mainWithoutKeystore];
-    if (versions.new) {
-      mainMenu = [
-        {
-          name: `Upgrade Client(From ${versions.current} to ${versions.latest})`,
-          value: 'upgrade_client',
-          description: 'Upgrade Client',
-        },
-        ...mainMenu,
-      ];
-    } else {
-      mainMenu.splice(4, 0, {
-        name: `Check Client Version`,
-        value: 'check_client_version',
-        description: 'Check Client Version',
-      });
+
+    if (!isDocker()) {
+      const versions = await Version.checkForUpdates('message');
+      if (versions.new) {
+        mainMenu = [
+          {
+            name: `Upgrade Client(From ${versions.current} to ${versions.latest})`,
+            value: 'upgrade_client',
+            description: 'Upgrade Client',
+          },
+          ...mainMenu,
+        ];
+      } else {
+        mainMenu.splice(4, 0, {
+          name: `Check Client Version`,
+          value: 'check_client_version',
+          description: 'Check Client Version',
+        });
+      }
     }
 
     action = await select({ message: 'Select action', choices: mainMenu });
@@ -126,7 +129,13 @@ async function checkClientMenu() {
     },
   ];
   let versionMessage;
-  const versions = await Version.checkForUpdates('message');
+  let versions;
+  if (isDocker()) {
+    versions = { new: false };
+  } else {
+    versions = await Version.checkForUpdates('message');
+  }
+
   if (versions.new) {
     versionMessage =
       '-----------------------------------------------\n' +
